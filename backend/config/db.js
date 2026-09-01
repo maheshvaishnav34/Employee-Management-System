@@ -1,23 +1,30 @@
 const mongoose = require('mongoose');
 
-let isConnected = false;
+let dbPromise = null;
 
 const connectDB = async () => {
-  if (isConnected || mongoose.connection.readyState >= 1) {
-    return;
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
   }
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/employee_management');
-    isConnected = true;
+
+  if (dbPromise) {
+    return dbPromise;
+  }
+
+  const connUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/employee_management';
+
+  dbPromise = mongoose.connect(connUri, {
+    serverSelectionTimeoutMS: 5000,
+  }).then((conn) => {
     console.log(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
+    return conn;
+  }).catch((error) => {
+    dbPromise = null;
     console.error(`Error connecting to MongoDB: ${error.message}`);
-    if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
-    } else {
-      throw error;
-    }
-  }
+    throw error;
+  });
+
+  return dbPromise;
 };
 
 module.exports = connectDB;
