@@ -30,6 +30,8 @@ const TransferRequest = require('./models/TransferRequest');
 const Resignation = require('./models/Resignation');
 
 
+const app = express();
+
 let isSeeded = false;
 async function runSeedsIfNeeded() {
   if (isSeeded) return;
