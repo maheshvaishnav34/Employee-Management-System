@@ -30,16 +30,42 @@ const TransferRequest = require('./models/TransferRequest');
 const Resignation = require('./models/Resignation');
 
 
-const app = express();
+let isSeeded = false;
+async function runSeedsIfNeeded() {
+  if (isSeeded) return;
+  try {
+    const existingUsers = await User.countDocuments();
+    if (existingUsers === 0) {
+      console.log('Fresh database detected. Initializing database seeds...');
+      await seedDatabase();
+      await seedNewCollections();
+      await ensureEmployeeProfiles();
+    }
+    isSeeded = true;
+  } catch (err) {
+    console.error('Seeding check error:', err.message);
+  }
+}
 
 // Middleware to ensure DB connection on every request (serverless safe)
 app.use(async (req, res, next) => {
+  if (process.env.VERCEL && !process.env.MONGODB_URI) {
+    return res.status(500).json({
+      message: 'Database connection failed: MONGODB_URI environment variable is missing in Vercel.',
+      details: 'Please go to Vercel Settings -> Environment Variables and add MONGODB_URI (your MongoDB Atlas URI).'
+    });
+  }
+
   try {
     await connectDB();
+    await runSeedsIfNeeded();
     next();
   } catch (err) {
     console.error('DB Connection Error:', err);
-    res.status(500).json({ message: 'Database connection failed', error: err.message });
+    res.status(500).json({
+      message: 'Database connection failed. Please check your MONGODB_URI in Vercel and ensure MongoDB Atlas Network Access allows 0.0.0.0/0.',
+      error: err.message
+    });
   }
 });
 
