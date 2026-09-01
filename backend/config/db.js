@@ -13,8 +13,17 @@ const connectDB = async () => {
 
   const connUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/employee_management';
 
+  const isAtlas = connUri.includes('mongodb+srv');
+
   dbPromise = mongoose.connect(connUri, {
-    serverSelectionTimeoutMS: 5000,
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+    socketTimeoutMS: 30000,
+    ...(isAtlas && {
+      tls: true,
+      tlsAllowInvalidCertificates: false,
+      retryWrites: true,
+    }),
   }).then((conn) => {
     console.log(`MongoDB Connected: ${conn.connection.host}`);
     return conn;
@@ -28,3 +37,4 @@ const connectDB = async () => {
 };
 
 module.exports = connectDB;
+
