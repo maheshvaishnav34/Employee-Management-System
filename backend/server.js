@@ -32,17 +32,20 @@ const Resignation = require('./models/Resignation');
 
 const app = express();
 
-// Connect to Database
-connectDB().then(async () => {
-  // Seed database
-  await seedDatabase();
-  await seedNewCollections();
-  await ensureEmployeeProfiles();
+// Middleware to ensure DB connection on every request (serverless safe)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('DB Connection Error:', err);
+    res.status(500).json({ message: 'Database connection failed', error: err.message });
+  }
 });
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://localhost:5174', 'http://127.0.0.1:5174'],
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -732,6 +735,16 @@ async function ensureEmployeeProfiles() {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  connectDB().then(async () => {
+    await seedDatabase();
+    await seedNewCollections();
+    await ensureEmployeeProfiles();
+  });
+
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  });
+}
+
+module.exports = app;
