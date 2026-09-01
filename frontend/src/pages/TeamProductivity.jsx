@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CheckSquare, Clock, Users, TrendingUp, BarChart2, Loader, RefreshCw, Calendar, Award } from 'lucide-react';
 
-const API = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
+const API = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:5000/api' : '/api');
 const getToken = () => localStorage.getItem('ems_token');
 
 const Avatar = ({ name, img }) => {
