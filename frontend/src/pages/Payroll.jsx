@@ -4,11 +4,25 @@ import { api } from '../utils/api';
 import PayslipModal from '../components/PayslipModal';
 import { CircleDollarSign, Plus, Edit2, FileText, X, AlertCircle } from 'lucide-react';
 
+// Global cache for instant payroll board navigation
+let cachedPayrollList = null;
+
 const Payroll = () => {
   const { user } = useAuth();
-  const [payrolls, setPayrolls] = useState([]);
+  const [payrolls, setPayrolls] = useState(() => {
+    if (cachedPayrollList) return cachedPayrollList;
+    try {
+      const s = sessionStorage.getItem(`ems_cached_payroll_${user?.role}`);
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
   const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (cachedPayrollList) return false;
+    try {
+      return !sessionStorage.getItem(`ems_cached_payroll_${user?.role}`);
+    } catch(e) { return true; }
+  });
   const [error, setError] = useState('');
 
   // Admin Payroll Run Generation state
@@ -38,9 +52,9 @@ const Payroll = () => {
 
   const isLedgerVisible = ['admin', 'hr', 'manager'].includes(user?.role);
 
-  const fetchPayrolls = async () => {
+  const fetchPayrolls = async (forceSpinner = false) => {
     try {
-      setLoading(true);
+      if (forceSpinner || !payrolls.length) setLoading(true);
       setError('');
       const params = [];
       if (monthFilter) params.push(`month=${monthFilter}`);
@@ -49,9 +63,13 @@ const Payroll = () => {
       const data = await api.get(`/payroll${queryStr}`);
       if (data.success) {
         setPayrolls(data.payrolls);
+        if (!monthFilter) {
+          cachedPayrollList = data.payrolls;
+          try { sessionStorage.setItem(`ems_cached_payroll_${user?.role}`, JSON.stringify(data.payrolls)); } catch(e) {}
+        }
       }
     } catch (err) {
-      setError(err.message || 'Failed to load payroll logs');
+      if (!payrolls.length) setError(err.message || 'Failed to load payroll logs');
     } finally {
       setLoading(false);
     }
@@ -196,7 +214,7 @@ const Payroll = () => {
           </div>
 
           {/* Right panel: Active payroll grid ledger */}
-          <div className="table-container" style={{ margin: 0 }}>
+          <div className="table-container table-responsive-wrapper" style={{ margin: 0 }}>
             <div className="table-header-row">
               <span className="table-title">Global Salary Ledger ({payrolls.length} entries)</span>
             </div>

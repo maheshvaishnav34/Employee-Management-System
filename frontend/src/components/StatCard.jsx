@@ -4,10 +4,10 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', subText }) => {
   // Color maps matching Kuber theme styles
   const colorMap = {
     primary: {
-      accent: '#6777ef',
-      bg: 'rgba(103, 119, 239, 0.1)',
-      gradient: 'linear-gradient(135deg, #6777ef 0%, #3f51b5 100%)',
-      shadow: '0 4px 20px rgba(103, 119, 239, 0.25)',
+      accent: '#2563eb',
+      bg: 'rgba(37, 99, 235, 0.1)',
+      gradient: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)',
+      shadow: '0 4px 20px rgba(37, 99, 235, 0.25)',
     },
     success: {
       accent: '#2ebd7f',

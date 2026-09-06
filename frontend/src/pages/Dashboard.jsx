@@ -27,38 +27,71 @@ import {
   CircleDollarSign, RefreshCw, Shield, Sparkles
 } from 'lucide-react';
 
+// Global memory cache for instant dashboard transitions
+let cachedDashboardStats = null;
+
 const Dashboard = () => {
   const { user } = useAuth();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Instant initial state from memory cache, session storage, or local storage
+  const [data, setData] = useState(() => {
+    if (cachedDashboardStats) return cachedDashboardStats;
+    try {
+      const stored = sessionStorage.getItem(`ems_dash_${user?.role}`) || localStorage.getItem('ems_dash_cache');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  
+  // Only show loading spinner if completely no data exists
+  const [loading, setLoading] = useState(() => {
+    if (cachedDashboardStats) return false;
+    try {
+      const stored = sessionStorage.getItem(`ems_dash_${user?.role}`) || localStorage.getItem('ems_dash_cache');
+      return !stored;
+    } catch (e) {
+      return true;
+    }
+  });
+
   const [error, setError] = useState('');
   const [selectedPayslip, setSelectedPayslip] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   const fadeInUpStyle = (delayMs) => ({
-    animation: 'slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) both',
+    animation: 'slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) both',
     animationDelay: `${delayMs}ms`,
   });
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (isManual = false) => {
     try {
-      setLoading(true);
+      if (isManual || !data) setLoading(true);
       setError('');
       const res = await api.get('/dashboard/stats');
       if (res.success) {
         setData(res.stats);
+        cachedDashboardStats = res.stats;
+        try {
+          sessionStorage.setItem(`ems_dash_${user?.role}`, JSON.stringify(res.stats));
+          localStorage.setItem('ems_dash_cache', JSON.stringify(res.stats));
+        } catch (e) {}
         setLastRefresh(new Date());
       }
     } catch (err) {
-      setError(err.message || 'Failed to fetch dashboard metrics');
+      if (!data) {
+        setError(err.message || 'Failed to fetch dashboard metrics');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchDashboardData(); }, [user]);
+  useEffect(() => {
+    fetchDashboardData();
+  }, [user]);
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="page-container" style={{ textAlign: 'center', paddingTop: '4rem' }}>
         <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
@@ -93,12 +126,12 @@ const Dashboard = () => {
         /* ═══════════════ ADMIN / HR DASHBOARD ═══════════════ */
         <>
           {/* Admin Welcome Banner & Refresh */}
-          <div className="card" style={{
+          <div className="card dashboard-welcome-banner" style={{
             background: 'linear-gradient(135deg, rgba(103,119,239,0.06) 0%, rgba(63,81,181,0.03) 100%)',
             border: '1px solid rgba(103,119,239,0.15)',
-            padding: '1.75rem',
+            padding: '1.5rem',
             borderRadius: '16px',
-            marginBottom: '1.5rem',
+            marginBottom: '1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -106,27 +139,27 @@ const Dashboard = () => {
             gap: '1rem',
             ...fadeInUpStyle(25)
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
               <div style={{
-                width: '56px', height: '56px', borderRadius: '16px',
+                width: '52px', height: '52px', borderRadius: '14px',
                 background: 'rgba(103,119,239,0.12)', color: 'var(--primary-accent)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
               }}>
                 <Shield size={26} />
               </div>
               <div>
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>Workplace Analytics Center</h1>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
+                <h1 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0 }}>Workplace Analytics Center</h1>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
                   Monitor system headcounts, daily attendance records, logs, leave approvals, and payroll distributions.
                 </p>
               </div>
             </div>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <button
-                onClick={fetchDashboardData}
+                onClick={() => fetchDashboardData(true)}
                 className="btn btn-secondary"
-                style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '8px', cursor: 'pointer' }}
+                style={{ padding: '0.55rem 1.15rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '8px', cursor: 'pointer' }}
                 title={`Last refreshed: ${lastRefresh.toLocaleTimeString()}`}
               >
                 <RefreshCw size={14} /> Refresh
@@ -135,12 +168,12 @@ const Dashboard = () => {
           </div>
 
           {/* Quick Actions Panel */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.5rem', ...fadeInUpStyle(50) }}>
+          <div style={{ marginBottom: '1.25rem', ...fadeInUpStyle(50) }}>
             <QuickActions />
           </div>
 
           {/* Announcements & Celebrations Bulletin */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(60) }}>
+          <div className="dashboard-grid-split" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(60) }}>
             <AnnouncementsWidget />
             <CelebrationsWidget
               birthdays={data?.lists?.upcomingBirthdays ?? []}
@@ -149,7 +182,7 @@ const Dashboard = () => {
           </div>
 
           {/* Row 1: Employee Count Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(75) }}>
+          <div className="grid-auto-fit-4" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(75) }}>
             <StatCard title="Total Employees"   value={c.totalEmployees ?? 0}    icon={Users}     color="primary" subText={`${c.totalDepartments ?? 0} departments`} />
             <StatCard title="Active Staff"       value={c.activeEmployees ?? 0}   icon={UserCheck} color="success" subText={`${c.newThisMonth ?? 0} joined this month`} />
             <StatCard title="Inactive"           value={c.inactiveEmployees ?? 0} icon={UserX}     color="danger"  subText="Deactivated accounts" />
@@ -157,7 +190,7 @@ const Dashboard = () => {
           </div>
 
           {/* Row 2: Attendance Summary Cards */}
-          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginBottom: '1.5rem', ...fadeInUpStyle(150) }}>
+          <div className="grid-auto-fit-4" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(150) }}>
             <StatCard title="Present Today"  value={c.todayPresent ?? 0}   icon={CalendarCheck} color="success" subText={`${c.attendanceRate ?? 0}% attendance rate`} />
             <StatCard title="Absent Today"   value={c.todayAbsent ?? 0}    icon={CalendarX}     color="danger"  subText="Not clocked in" />
             <StatCard title="Late Arrivals"  value={c.todayLate ?? 0}      icon={Clock}         color="warning" subText="Clocked in late today" />
@@ -165,20 +198,20 @@ const Dashboard = () => {
           </div>
 
           {/* Row 3: Headcount Trend + Gender + Dept Performance */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.3fr', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(225) }}>
+          <div className="dashboard-grid-3" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(225) }}>
             <HeadcountTrend data={data?.charts?.headcountTrend} />
             <GenderChart data={data?.charts?.genderDistribution ?? []} />
             <DeptPerformance data={data?.charts?.departmentDistribution ?? []} />
           </div>
 
           {/* Row 4: Payroll Chart + Dept Share */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(300) }}>
+          <div className="dashboard-grid-split" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(300) }}>
             <PayrollChart data={data?.charts?.monthlyPayrollTrend} />
             <DepartmentChart data={data?.charts?.departmentDistribution} />
           </div>
 
           {/* Row 5: Activity Feed */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(375) }}>
+          <div style={{ marginBottom: '1.25rem', ...fadeInUpStyle(375) }}>
             <ActivityFeed
               logs={data?.lists?.recentAuditLogs ?? []}
               newEmployees={data?.lists?.newEmployees ?? []}
@@ -186,7 +219,7 @@ const Dashboard = () => {
           </div>
 
           {/* Row 6: Quick Approvals Hub (Leaves, Expenses, Assets) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(450) }}>
+          <div className="dashboard-grid-2" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(450) }}>
             <LeaveQuickApprove
               leaves={data?.lists?.recentLeaves ?? []}
               onUpdate={fetchDashboardData}
@@ -195,12 +228,12 @@ const Dashboard = () => {
           </div>
 
           {/* Row 6b: Workplace Engagement Hub */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(485) }}>
+          <div style={{ marginBottom: '1.25rem', ...fadeInUpStyle(485) }}>
             <AdminEngagementAnalytics />
           </div>
 
           {/* Row 7: Top Performers + Payroll Summary */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(500) }}>
+          <div className="dashboard-grid-split" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(500) }}>
             <TopPerformers performers={data?.lists?.topPerformers ?? []} />
             <PayrollSummaryWidget payroll={data?.payroll} />
           </div>
@@ -228,7 +261,7 @@ const Dashboard = () => {
                     background: 'var(--bg-primary)',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                      <div className="sidebar-footer-avatar" style={{ width: '30px', height: '30px', fontSize: '0.7rem', flexShrink: 0, background: 'linear-gradient(135deg, #6777ef 0%, #3f51b5 100%)', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      <div className="sidebar-footer-avatar" style={{ width: '30px', height: '30px', fontSize: '0.7rem', flexShrink: 0, background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                         {log.employee?.firstName?.[0]}{log.employee?.lastName?.[0]}
                       </div>
                       <div>
@@ -250,12 +283,12 @@ const Dashboard = () => {
         /* ═══════════════ MANAGER DASHBOARD ═══════════════ */
         <>
           {/* Manager Welcome Banner & Refresh */}
-          <div className="card" style={{
+          <div className="card dashboard-welcome-banner" style={{
             background: 'linear-gradient(135deg, rgba(103,119,239,0.06) 0%, rgba(63,81,181,0.03) 100%)',
             border: '1px solid rgba(103,119,239,0.15)',
-            padding: '1.75rem',
+            padding: '1.5rem',
             borderRadius: '16px',
-            marginBottom: '1.5rem',
+            marginBottom: '1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -263,27 +296,27 @@ const Dashboard = () => {
             gap: '1rem',
             ...fadeInUpStyle(25)
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
               <div style={{
-                width: '56px', height: '56px', borderRadius: '16px',
+                width: '52px', height: '52px', borderRadius: '14px',
                 background: 'rgba(103,119,239,0.12)', color: 'var(--primary-accent)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
               }}>
                 <Shield size={26} />
               </div>
               <div>
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>Team Management Hub</h1>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
+                <h1 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0 }}>Team Management Hub</h1>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
                   Monitor department team members, daily attendance logs, and pending leave requests.
                 </p>
               </div>
             </div>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <button
-                onClick={fetchDashboardData}
+                onClick={() => fetchDashboardData(true)}
                 className="btn btn-secondary"
-                style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '8px', cursor: 'pointer' }}
+                style={{ padding: '0.55rem 1.15rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '8px', cursor: 'pointer' }}
                 title={`Last refreshed: ${lastRefresh.toLocaleTimeString()}`}
               >
                 <RefreshCw size={14} /> Refresh
@@ -292,12 +325,12 @@ const Dashboard = () => {
           </div>
 
           {/* Quick Actions Panel */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.5rem', ...fadeInUpStyle(50) }}>
+          <div style={{ marginBottom: '1.25rem', ...fadeInUpStyle(50) }}>
             <QuickActions />
           </div>
 
           {/* Announcements & Celebrations Bulletin */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(60) }}>
+          <div className="dashboard-grid-split" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(60) }}>
             <AnnouncementsWidget />
             <CelebrationsWidget
               birthdays={data?.lists?.upcomingBirthdays ?? []}
@@ -306,7 +339,7 @@ const Dashboard = () => {
           </div>
 
           {/* Row 1: Team Count Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(75) }}>
+          <div className="grid-auto-fit-4" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(75) }}>
             <StatCard title="Total Team Members" value={c.totalEmployees ?? 0}    icon={Users}     color="primary" subText="Direct reports in department" />
             <StatCard title="Active Members"     value={c.activeEmployees ?? 0}   icon={UserCheck} color="success" subText="Currently active" />
             <StatCard title="Inactive Members"   value={c.inactiveEmployees ?? 0} icon={UserX}     color="danger"  subText="Suspended/inactive accounts" />
@@ -314,7 +347,7 @@ const Dashboard = () => {
           </div>
 
           {/* Row 2: Attendance Summary Cards */}
-          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginBottom: '1.5rem', ...fadeInUpStyle(150) }}>
+          <div className="grid-auto-fit-4" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(150) }}>
             <StatCard title="Present Today"  value={c.todayPresent ?? 0}   icon={CalendarCheck} color="success" subText="Team members present today" />
             <StatCard title="Absent Today"   value={c.todayAbsent ?? 0}    icon={CalendarX}     color="danger"  subText="Not clocked in today" />
             <StatCard title="Late Arrivals"  value={c.todayLate ?? 0}      icon={Clock}         color="warning" subText="Clocked in late today" />
@@ -322,13 +355,13 @@ const Dashboard = () => {
           </div>
 
           {/* Row 2b: Team Tasks Summary */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(180) }}>
+          <div className="dashboard-grid-2" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(180) }}>
             <StatCard title="Pending Tasks"   value={c.pendingTasks ?? 0}   icon={ClipboardList} color="info"    subText="Tasks in progress or pending" />
             <StatCard title="Completed Tasks" value={c.completedTasks ?? 0} icon={UserCheck}     color="success" subText="Successfully completed tasks" />
           </div>
 
           {/* Row 3: Leave Quick Approve & Top Performers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '1.25rem', marginBottom: '1.5rem', ...fadeInUpStyle(225) }}>
+          <div className="dashboard-grid-split" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(225) }}>
             <LeaveQuickApprove
               leaves={data?.lists?.recentLeaves ?? []}
               onUpdate={fetchDashboardData}
@@ -359,7 +392,7 @@ const Dashboard = () => {
                     background: 'var(--bg-primary)',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                      <div className="sidebar-footer-avatar" style={{ width: '30px', height: '30px', fontSize: '0.7rem', flexShrink: 0, background: 'linear-gradient(135deg, #6777ef 0%, #3f51b5 100%)', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      <div className="sidebar-footer-avatar" style={{ width: '30px', height: '30px', fontSize: '0.7rem', flexShrink: 0, background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 100%)', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                         {log.employee?.firstName?.[0]}{log.employee?.lastName?.[0]}
                       </div>
                       <div>
@@ -381,12 +414,12 @@ const Dashboard = () => {
         /* ═══════════════ EMPLOYEE DASHBOARD ═══════════════ */
         <>
           {/* Employee Welcome Banner */}
-          <div className="card" style={{
+          <div className="card dashboard-welcome-banner" style={{
             background: 'linear-gradient(135deg, rgba(46,189,127,0.06) 0%, rgba(103,119,239,0.03) 100%)',
             border: '1px solid rgba(46,189,127,0.15)',
-            padding: '1.75rem',
+            padding: '1.5rem',
             borderRadius: '16px',
-            marginBottom: '1.5rem',
+            marginBottom: '1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -394,36 +427,41 @@ const Dashboard = () => {
             gap: '1rem',
             ...fadeInUpStyle(25)
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
               <div style={{
-                width: '56px', height: '56px', borderRadius: '16px',
+                width: '52px', height: '52px', borderRadius: '14px',
                 background: 'rgba(46,189,127,0.12)', color: 'var(--success)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
               }}>
                 <Sparkles size={26} />
               </div>
               <div>
-                <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>Welcome back, {user.username}!</h1>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
+                <h1 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0 }}>Welcome back, {user.username}!</h1>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
                   Have an amazing work session today. Make sure to complete your standard punches and log hours.
                 </p>
               </div>
             </div>
             
-            <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem' }}>
+            <div style={{ display: 'flex', gap: '1.25rem', fontSize: '0.82rem', flexWrap: 'wrap' }}>
               <div>
-                <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem', fontWeight: 700 }}>SHIFT SCHEDULE</span>
+                <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.7rem', fontWeight: 700 }}>SHIFT SCHEDULE</span>
                 <strong>09:30 AM - 06:30 PM</strong>
               </div>
-              <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '1.5rem' }}>
-                <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.72rem', fontWeight: 700 }}>CURRENT SHIFT</span>
+              <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '1.25rem' }}>
+                <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.7rem', fontWeight: 700 }}>CURRENT SHIFT</span>
                 <strong style={{ color: 'var(--success)' }}>DAY SHIFT</strong>
               </div>
             </div>
           </div>
 
+          {/* Employee Quick Actions Panel */}
+          <div style={{ marginBottom: '1.25rem', ...fadeInUpStyle(35) }}>
+            <QuickActions />
+          </div>
+
           {/* Stats Row */}
-          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginBottom: '1.5rem', ...fadeInUpStyle(50) }}>
+          <div className="grid-auto-fit-4" style={{ marginBottom: '1.25rem', ...fadeInUpStyle(50) }}>
             <StatCard title="Present This Month" value={c.monthPresent ?? 0}               icon={CalendarCheck} color="success" subText={`${c.monthLate ?? 0} late arrivals`} />
             <StatCard title="Hours Worked"        value={`${c.monthTotalHours ?? 0} hrs`}  icon={Clock}         color="primary" subText="Accumulated this month" />
             <StatCard title="Pending Leaves"      value={c.leavesPending ?? 0}             icon={ClipboardList} color="warning" subText="Awaiting approval" />
@@ -431,8 +469,8 @@ const Dashboard = () => {
           </div>
 
           {/* Interactive Console Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', ...fadeInUpStyle(75) }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="dashboard-grid-split" style={{ ...fadeInUpStyle(75) }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <AttendanceWidget onActionComplete={fetchDashboardData} />
               <EmployeeInfoHubWidget />
               <CelebrationsWidget
@@ -440,8 +478,8 @@ const Dashboard = () => {
                 anniversaries={data?.lists?.workAnniversaries ?? []}
               />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <span className="chart-title" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <CircleDollarSign size={18} style={{ color: 'var(--success)' }} />
                   Latest Salary
@@ -450,8 +488,8 @@ const Dashboard = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <strong style={{ fontSize: '1.1rem' }}>Month: {data.recentPayslip.month}</strong>
-                        <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                        <strong style={{ fontSize: '1.05rem' }}>Month: {data.recentPayslip.month}</strong>
+                        <span style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
                           Net: <strong style={{ color: 'var(--success)' }}>${data.recentPayslip.netSalary?.toLocaleString()}</strong>
                         </span>
                       </div>
@@ -471,7 +509,7 @@ const Dashboard = () => {
           </div>
 
           {/* Employee Wellbeing & Voices Section */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', marginTop: '1.5rem', ...fadeInUpStyle(120) }}>
+          <div className="dashboard-grid-split" style={{ marginTop: '1.25rem', ...fadeInUpStyle(120) }}>
             <MoodPulseWidget />
             <DashboardPollWidget />
           </div>

@@ -6,7 +6,7 @@ const MoodPulseWidget = () => {
   const [loggedToday, setLoggedToday] = useState(false);
   const [selectedMood, setSelectedMood] = useState(null);
   const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [serverMood, setServerMood] = useState('');
   const [error, setError] = useState('');
@@ -19,9 +19,9 @@ const MoodPulseWidget = () => {
     stressed: { emoji: '😰', label: 'Stressed', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', quote: "Deep breath. Prioritize one thing at a time or reach out for support. We've got your back! ❤️" }
   };
 
-  const fetchTodayMood = async () => {
+  const fetchTodayMood = async (force = false) => {
     try {
-      setLoading(true);
+      if (force) setLoading(true);
       const res = await api.get('/engagement/mood/today');
       if (res.success) {
         setLoggedToday(res.loggedToday);
@@ -58,14 +58,6 @@ const MoodPulseWidget = () => {
       setSubmitting(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '180px' }}>
-        <Loader2 className="spinner" size={24} style={{ color: 'var(--primary-accent)' }} />
-      </div>
-    );
-  }
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', minHeight: '180px', position: 'relative', overflow: 'hidden' }}>

@@ -7,14 +7,36 @@ const Employee = require('../models/Employee');
 const getShifts = async (req, res, next) => {
   try {
     let query = {};
-    if (req.user.role === 'employee') {
-      const emp = await Employee.findOne({ email: req.user.email });
+    
+    // If employee or requesting own shifts
+    if (req.user.role === 'employee' || req.query.view === 'my') {
+      let emp = null;
+      if (req.user.employee) {
+        emp = await Employee.findById(req.user.employee);
+      }
+      if (!emp && req.user.email) {
+        emp = await Employee.findOne({ email: { $regex: new RegExp(`^${req.user.email.trim()}$`, 'i') } });
+      }
       if (!emp) return res.status(200).json({ success: true, count: 0, shifts: [] });
-      query = { employee: emp._id };
+      query.employee = emp._id;
+    } else if (req.query.employee) {
+      query.employee = req.query.employee;
+    }
+
+    if (req.query.type) {
+      query.type = req.query.type;
+    }
+
+    if (req.query.date) {
+      const d = new Date(req.query.date);
+      d.setHours(0, 0, 0, 0);
+      const nextDay = new Date(d);
+      nextDay.setDate(d.getDate() + 1);
+      query.date = { $gte: d, $lt: nextDay };
     }
 
     const shifts = await Shift.find(query)
-      .populate('employee', 'firstName lastName employeeId designation department')
+      .populate('employee', 'firstName lastName employeeId designation department avatar email')
       .populate('scheduledBy', 'username email')
       .sort({ date: 1, startTime: 1 });
 

@@ -5,13 +5,13 @@ import { BarChart3, CheckCircle2, Loader2, Vote } from 'lucide-react';
 const DashboardPollWidget = () => {
   const [poll, setPoll] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchActivePoll = async () => {
+  const fetchActivePoll = async (force = false) => {
     try {
-      setLoading(true);
+      if (force) setLoading(true);
       const res = await api.get('/engagement/polls/active');
       if (res.success) {
         setPoll(res.poll);
@@ -45,7 +45,7 @@ const DashboardPollWidget = () => {
     }
   };
 
-  if (loading) {
+  if (loading && !poll) {
     return (
       <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
         <Loader2 className="spinner" size={24} style={{ color: 'var(--primary-accent)' }} />

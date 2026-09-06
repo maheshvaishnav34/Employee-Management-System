@@ -29,11 +29,32 @@ const PriorityIcon = ({ priority }) => {
   return <ChevronDown size={14} color="#2ebd7f" />;
 };
 
+// Global cache for instant tasks navigation
+let cachedTasksList = null;
+let cachedTasksEmployees = null;
+
 const Tasks = () => {
   const { user } = useAuth();
-  const [tasks, setTasks] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState(() => {
+    if (cachedTasksList) return cachedTasksList;
+    try {
+      const s = sessionStorage.getItem(`ems_cached_tasks_${user?.role}`);
+      return s ? JSON.parse(s) : [];
+    } catch (e) { return []; }
+  });
+  const [employees, setEmployees] = useState(() => {
+    if (cachedTasksEmployees) return cachedTasksEmployees;
+    try {
+      const s = sessionStorage.getItem('ems_cached_tasks_emps');
+      return s ? JSON.parse(s) : [];
+    } catch (e) { return []; }
+  });
+  const [loading, setLoading] = useState(() => {
+    if (cachedTasksList) return false;
+    try {
+      return !sessionStorage.getItem(`ems_cached_tasks_${user?.role}`);
+    } catch (e) { return true; }
+  });
   const [error, setError] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
@@ -47,17 +68,23 @@ const Tasks = () => {
 
   const isHRPlus = ['admin', 'hr', 'manager'].includes(user?.role);
 
-  const fetchTasks = async () => {
+  const fetchTasks = async (forceSpinner = false) => {
     try {
-      setLoading(true);
+      if (forceSpinner || !tasks.length) setLoading(true);
       const params = [];
       if (filterStatus) params.push(`status=${filterStatus}`);
       if (filterPriority) params.push(`priority=${filterPriority}`);
       const qs = params.length ? `?${params.join('&')}` : '';
       const res = await api.get(`/tasks${qs}`);
-      if (res.success) setTasks(res.tasks);
+      if (res.success) {
+        setTasks(res.tasks);
+        if (!filterStatus && !filterPriority) {
+          cachedTasksList = res.tasks;
+          try { sessionStorage.setItem(`ems_cached_tasks_${user?.role}`, JSON.stringify(res.tasks)); } catch (e) {}
+        }
+      }
     } catch (e) {
-      setError(e.message);
+      if (!tasks.length) setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -67,7 +94,11 @@ const Tasks = () => {
     if (!isHRPlus) return;
     try {
       const res = await api.get('/employees');
-      if (res.success) setEmployees(res.employees);
+      if (res.success) {
+        setEmployees(res.employees);
+        cachedTasksEmployees = res.employees;
+        try { sessionStorage.setItem('ems_cached_tasks_emps', JSON.stringify(res.employees)); } catch (e) {}
+      }
     } catch (e) {}
   };
 

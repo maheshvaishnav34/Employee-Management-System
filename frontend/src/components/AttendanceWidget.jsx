@@ -9,16 +9,16 @@ const AttendanceWidget = ({ onActionComplete }) => {
     record: null,
   });
   const [time, setTime] = useState(new Date());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [activeHours, setActiveHours] = useState('00:00:00');
   const [workMode, setWorkMode] = useState('Office');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   // Fetch status of today's attendance on load
-  const fetchTodayStatus = async () => {
+  const fetchTodayStatus = async (force = false) => {
     try {
-      setLoading(true);
+      if (force) setLoading(true);
       setError('');
       const data = await api.get('/attendance/today-status');
       if (data.success) {
@@ -107,14 +107,6 @@ const AttendanceWidget = ({ onActionComplete }) => {
       setError(err.message || 'Clock-out failed');
     }
   };
-
-  if (loading) {
-    return (
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '340px' }}>
-        <p style={{ color: 'var(--text-secondary)' }}>Loading Console...</p>
-      </div>
-    );
-  }
 
   // Choose icon based on workMode
   const getWorkModeIcon = (mode) => {

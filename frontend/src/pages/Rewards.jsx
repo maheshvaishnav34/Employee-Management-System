@@ -16,14 +16,43 @@ const BADGE_ICONS = {
   'Punctuality':       { icon: Award,  color: '#2ebd7f', bg: 'rgba(46,189,127,0.12)' },
 };
 
+// Global cache for instant rewards navigation
+let cachedRewardsMy = null;
+let cachedRewardsLeaderboard = null;
+let cachedRewardsAll = null;
+let cachedRewardsPoints = 0;
+
 const Rewards = () => {
   const { user } = useAuth();
-  const [myRewards, setMyRewards] = useState([]);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [allRewards, setAllRewards] = useState([]);
+  const [myRewards, setMyRewards] = useState(() => {
+    if (cachedRewardsMy) return cachedRewardsMy;
+    try {
+      const s = sessionStorage.getItem(`ems_cached_rewards_my_${user?.role}`);
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
+  const [leaderboard, setLeaderboard] = useState(() => {
+    if (cachedRewardsLeaderboard) return cachedRewardsLeaderboard;
+    try {
+      const s = sessionStorage.getItem('ems_cached_rewards_lb');
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
+  const [allRewards, setAllRewards] = useState(() => {
+    if (cachedRewardsAll) return cachedRewardsAll;
+    try {
+      const s = sessionStorage.getItem('ems_cached_rewards_all');
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
   const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [totalPoints, setTotalPoints] = useState(0);
+  const [loading, setLoading] = useState(() => {
+    if (cachedRewardsMy || cachedRewardsLeaderboard) return false;
+    try {
+      return !sessionStorage.getItem('ems_cached_rewards_lb');
+    } catch(e) { return true; }
+  });
+  const [totalPoints, setTotalPoints] = useState(() => cachedRewardsPoints || 0);
   const [modalOpen, setModalOpen] = useState(false);
   const [formError, setFormError] = useState('');
   const [success, setSuccess] = useState('');
@@ -33,19 +62,33 @@ const Rewards = () => {
 
   const isHRPlus = ['admin', 'hr'].includes(user?.role);
 
-  const fetchData = async () => {
+  const fetchData = async (forceSpinner = false) => {
     try {
-      setLoading(true);
+      if (forceSpinner || (!myRewards.length && !leaderboard.length)) setLoading(true);
       const [myRes, lbRes] = await Promise.all([
         api.get('/rewards/my'),
         api.get('/rewards/leaderboard'),
       ]);
-      if (myRes.success) { setMyRewards(myRes.rewards); setTotalPoints(myRes.totalPoints); }
-      if (lbRes.success) setLeaderboard(lbRes.leaderboard);
+      if (myRes.success) {
+        setMyRewards(myRes.rewards);
+        setTotalPoints(myRes.totalPoints);
+        cachedRewardsMy = myRes.rewards;
+        cachedRewardsPoints = myRes.totalPoints;
+        try { sessionStorage.setItem(`ems_cached_rewards_my_${user?.role}`, JSON.stringify(myRes.rewards)); } catch(e) {}
+      }
+      if (lbRes.success) {
+        setLeaderboard(lbRes.leaderboard);
+        cachedRewardsLeaderboard = lbRes.leaderboard;
+        try { sessionStorage.setItem('ems_cached_rewards_lb', JSON.stringify(lbRes.leaderboard)); } catch(e) {}
+      }
 
       if (isHRPlus) {
         const allRes = await api.get('/rewards');
-        if (allRes.success) setAllRewards(allRes.rewards);
+        if (allRes.success) {
+          setAllRewards(allRes.rewards);
+          cachedRewardsAll = allRes.rewards;
+          try { sessionStorage.setItem('ems_cached_rewards_all', JSON.stringify(allRes.rewards)); } catch(e) {}
+        }
         const empRes = await api.get('/employees');
         if (empRes.success) setEmployees(empRes.employees);
       }

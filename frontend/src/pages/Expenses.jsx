@@ -16,10 +16,24 @@ const CATEGORY_COLORS = {
   Other: '#64748b',
 };
 
+// Global cache for instant expenses navigation
+let cachedExpensesList = null;
+
 const Expenses = () => {
   const { user } = useAuth();
-  const [expenses, setExpenses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [expenses, setExpenses] = useState(() => {
+    if (cachedExpensesList) return cachedExpensesList;
+    try {
+      const s = sessionStorage.getItem(`ems_cached_expenses_${user?.role}`);
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
+  const [loading, setLoading] = useState(() => {
+    if (cachedExpensesList) return false;
+    try {
+      return !sessionStorage.getItem(`ems_cached_expenses_${user?.role}`);
+    } catch(e) { return true; }
+  });
   const [error, setError] = useState('');
   
   // Filter state
@@ -43,14 +57,18 @@ const Expenses = () => {
 
   const isHRPlus = ['admin', 'hr'].includes(user?.role);
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = async (forceSpinner = false) => {
     try {
-      setLoading(true);
+      if (forceSpinner || !expenses.length) setLoading(true);
       setError('');
       const res = await api.get('/expenses');
-      if (res.success) setExpenses(res.expenses);
+      if (res.success) {
+        setExpenses(res.expenses);
+        cachedExpensesList = res.expenses;
+        try { sessionStorage.setItem(`ems_cached_expenses_${user?.role}`, JSON.stringify(res.expenses)); } catch(e) {}
+      }
     } catch (e) {
-      setError(e.message);
+      if (!expenses.length) setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -156,16 +174,16 @@ const Expenses = () => {
       {error && <div className="alert alert-danger" style={{ marginBottom: '1rem' }}><AlertCircle size={16} /> {error}</div>}
 
       {/* Stats Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }} className="three-column-grid">
+      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
         {[
           { label: 'Total Submitted', value: stats.total, color: 'var(--primary-accent)', icon: DollarSign },
           { label: 'Pending Approval', value: stats.pending, color: 'var(--warning)', icon: Clock },
           { label: 'Approved Claims', value: stats.approved, color: 'var(--success)', icon: CheckCircle },
         ].map(s => (
-          <div key={s.label} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.5rem' }}>
+          <div key={s.label} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 1.5rem' }}>
             <div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.25rem' }}>{s.label}</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800 }}>${s.value.toFixed(2)}</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800 }}>${s.value.toFixed(2)}</div>
             </div>
             <div style={{
               width: '42px', height: '42px', borderRadius: '10px',
@@ -178,16 +196,16 @@ const Expenses = () => {
       </div>
 
       {/* Filter Tabs */}
-      <div className="card" style={{ padding: '0.75rem 1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+      <div className="card" style={{ padding: '0.75rem 1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
           {['All', 'Pending', 'Approved', 'Rejected'].map(status => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
               className="btn btn-secondary"
               style={{
-                fontSize: '0.85rem',
-                padding: '0.4rem 1rem',
+                fontSize: '0.82rem',
+                padding: '0.35rem 0.85rem',
                 borderRadius: '8px',
                 border: statusFilter === status ? '1px solid var(--primary-accent)' : '1px solid var(--border-color)',
                 background: statusFilter === status ? 'var(--bg-sidebar-active)' : 'transparent',
@@ -220,7 +238,7 @@ const Expenses = () => {
           <p style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>No expense claims found.</p>
         </div>
       ) : (
-        <div className="table-container">
+        <div className="table-container table-responsive-wrapper">
           <div className="table-header-row">
             <span className="table-title">Expense Reimbursements History</span>
           </div>

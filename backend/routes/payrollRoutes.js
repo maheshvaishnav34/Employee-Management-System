@@ -16,7 +16,7 @@ router.get('/my', getMyPayrolls);
 router.get('/:id', getPayrollById);
 
 // HR/Admin routes
-router.post('/generate', authorize('admin'), generatePayroll);
-router.put('/:id', authorize('admin'), updatePayroll);
+router.post('/generate', authorize('admin', 'hr'), generatePayroll);
+router.put('/:id', authorize('admin', 'hr'), updatePayroll);
 
 module.exports = router;

@@ -7,25 +7,44 @@ import {
 } from 'lucide-react';
 import { SkeletonBlock } from '../components/Skeleton';
 
+// Global cache for instant chat navigation
+let cachedChatContacts = null;
+
 const Chat = () => {
   const { user } = useAuth();
-  const [contacts, setContacts] = useState([]);
+  const [contacts, setContacts] = useState(() => {
+    if (cachedChatContacts) return cachedChatContacts;
+    try {
+      const s = sessionStorage.getItem('ems_cached_chat_contacts');
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
   const [messages, setMessages] = useState([]);
   const [activeContact, setActiveContact] = useState({ id: 'global', name: 'Global Announcements', isGlobal: true });
   const [messageText, setMessageText] = useState('');
-  const [loadingContacts, setLoadingContacts] = useState(true);
+  const [loadingContacts, setLoadingContacts] = useState(() => {
+    if (cachedChatContacts) return false;
+    try {
+      return !sessionStorage.getItem('ems_cached_chat_contacts');
+    } catch(e) { return true; }
+  });
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState('');
+  const [showMobileChat, setShowMobileChat] = useState(false);
   
   const messagesEndRef = useRef(null);
 
-  const fetchContacts = async () => {
+  const fetchContacts = async (forceSpinner = false) => {
     try {
-      setLoadingContacts(true);
+      if (forceSpinner || !contacts.length) setLoadingContacts(true);
       const res = await api.get('/chat/users');
-      if (res.success) setContacts(res.users);
+      if (res.success) {
+        setContacts(res.users);
+        cachedChatContacts = res.users;
+        try { sessionStorage.setItem('ems_cached_chat_contacts', JSON.stringify(res.users)); } catch(e) {}
+      }
     } catch (e) {
-      setError(e.message);
+      if (!contacts.length) setError(e.message);
     } finally {
       setLoadingContacts(false);
     }
@@ -115,9 +134,9 @@ const Chat = () => {
       </div>
 
       {/* Main Workspace Layout */}
-      <div className="card" style={{ flex: 1, display: 'flex', padding: 0, overflow: 'hidden', minHeight: '400px' }}>
+      <div className={`card chat-container-card ${showMobileChat ? 'show-chat-view' : 'show-contacts-view'}`} style={{ flex: 1, display: 'flex', padding: 0, overflow: 'hidden', minHeight: '400px' }}>
         {/* Left contacts list */}
-        <div style={{
+        <div className="chat-contacts-pane" style={{
           width: '300px', borderRight: '1px solid var(--border-color)', display: 'flex',
           flexDirection: 'column', height: '100%'
         }}>
@@ -126,7 +145,7 @@ const Chat = () => {
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0
           }}>
             <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>Active Chats</span>
-            <button className="btn btn-secondary btn-icon" onClick={fetchContacts} style={{ width: '28px', height: '28px' }} title="Sync contacts">
+            <button className="btn btn-secondary btn-icon" onClick={() => fetchContacts(true)} style={{ width: '28px', height: '28px' }} title="Sync contacts">
               <RefreshCw size={12} />
             </button>
           </div>
@@ -134,7 +153,10 @@ const Chat = () => {
           <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem' }}>
             {/* Global Channel Button */}
             <div
-              onClick={() => setActiveContact({ id: 'global', name: 'Global Announcements', isGlobal: true })}
+              onClick={() => {
+                setActiveContact({ id: 'global', name: 'Global Announcements', isGlobal: true });
+                setShowMobileChat(true);
+              }}
               style={{
                 display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
                 borderRadius: '10px', cursor: 'pointer', marginBottom: '0.5rem',
@@ -182,7 +204,10 @@ const Chat = () => {
                 return (
                   <div
                     key={c._id}
-                    onClick={() => setActiveContact({ id: c._id, name: contactName, isGlobal: false })}
+                    onClick={() => {
+                      setActiveContact({ id: c._id, name: contactName, isGlobal: false });
+                      setShowMobileChat(true);
+                    }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
                       borderRadius: '10px', cursor: 'pointer', marginBottom: '0.25rem',
@@ -226,12 +251,30 @@ const Chat = () => {
         </div>
 
         {/* Right message space */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'rgba(0,0,0,0.01)' }}>
+        <div className="chat-messages-pane" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'rgba(0,0,0,0.01)' }}>
           {/* Active Contact info Header */}
           <div style={{
             padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)',
             background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0
           }}>
+            {showMobileChat && (
+              <button
+                onClick={() => setShowMobileChat(false)}
+                className="chat-back-button"
+                style={{
+                  padding: '0.35rem 0.65rem',
+                  borderRadius: '8px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  marginRight: '0.35rem'
+                }}
+              >
+                ← Chats
+              </button>
+            )}
             <div style={{
               width: '10px', height: '10px', borderRadius: '50%',
               background: activeContact.isGlobal ? '#ec4899' : '#6777ef'

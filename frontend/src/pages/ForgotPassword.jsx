@@ -1,38 +1,40 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { api } from '../utils/api';
+import { Mail, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
 
-const Login = () => {
+const ForgotPassword = () => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-  const [focusedField, setFocusedField] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState('');
 
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!email || !password) {
-      setError('Please enter both email and password.');
+    if (e && e.preventDefault) e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!email.trim()) {
+      setError('Please enter your email address');
       return;
     }
 
     try {
-      setError('');
       setLoading(true);
-      const res = await login(email, password);
-      if (res && res.success) {
-        navigate('/dashboard');
+      const res = await api.post('/auth/forgot-password', { email: email.trim() });
+      if (res.success) {
+        setSuccess('Reset instructions verified! Redirecting to set your new password...');
+        setTimeout(() => {
+          navigate(`/reset-password?email=${encodeURIComponent(email.trim())}`);
+        }, 1000);
       } else {
-        setError(res?.message || 'Invalid email or password');
+        setError(res.message || 'Unable to find account');
       }
     } catch (err) {
-      setError(err.message || 'Unable to connect to server');
+      setError(err.message || 'Connection to server failed');
     } finally {
       setLoading(false);
     }
@@ -150,7 +152,7 @@ const Login = () => {
         </p>
       </div>
 
-      {/* ── Main Clean Login Card ── */}
+      {/* ── Main Clean Card ── */}
       <div style={{
         position: 'relative',
         zIndex: 2,
@@ -162,26 +164,24 @@ const Login = () => {
         boxShadow: '0 20px 40px -15px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(226, 232, 240, 0.8)'
       }}>
 
-        {/* Card Header */}
-        <div style={{ textAlign: 'center', marginBottom: '1.35rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <h2 style={{
             fontSize: '1.35rem',
             fontWeight: 800,
             color: '#0f172a',
             margin: '0 0 0.35rem 0'
           }}>
-            Account Sign In
+            Forgot Password
           </h2>
           <p style={{
             fontSize: '0.82rem',
             color: '#64748b',
             margin: 0
           }}>
-            Enter your credentials to access the workspace
+            Enter your work email to reset your credentials
           </p>
         </div>
 
-        {/* Error Alert */}
         {error && (
           <div style={{
             display: 'flex',
@@ -200,11 +200,26 @@ const Login = () => {
           </div>
         )}
 
-        {/* Sign In Form */}
-        <form onSubmit={handleSubmit}>
+        {success && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.55rem',
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            color: '#16a34a',
+            borderRadius: '10px',
+            padding: '0.65rem 0.85rem',
+            fontSize: '0.82rem',
+            marginBottom: '1.25rem'
+          }}>
+            <CheckCircle size={16} />
+            <span>{success}</span>
+          </div>
+        )}
 
-          {/* Email Address */}
-          <div style={{ marginBottom: '1.15rem' }}>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '1.35rem' }}>
             <label style={{
               display: 'block',
               fontSize: '0.8rem',
@@ -248,114 +263,6 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Password */}
-          <div style={{ marginBottom: '1.15rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              color: '#334155',
-              marginBottom: '0.45rem'
-            }}>
-              Password
-            </label>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              height: '44px',
-              backgroundColor: '#ffffff',
-              border: focusedField === 'password' ? '1.5px solid #2563eb' : '1.5px solid #cbd5e1',
-              borderRadius: '10px',
-              padding: '0 0.85rem',
-              transition: 'all 0.2s ease',
-              boxShadow: focusedField === 'password' ? '0 0 0 3px rgba(37, 99, 235, 0.12)' : 'none'
-            }}>
-              <Lock size={16} color="#94a3b8" style={{ flexShrink: 0 }} />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField('')}
-                required
-                style={{
-                  border: 'none',
-                  outline: 'none',
-                  background: 'transparent',
-                  width: '100%',
-                  marginLeft: '0.65rem',
-                  fontSize: '0.88rem',
-                  color: '#0f172a',
-                  fontFamily: 'inherit'
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  color: '#94a3b8'
-                }}
-                title={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Remember Me & Forgot Password */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '1.45rem'
-          }}>
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              fontSize: '0.82rem',
-              color: '#475569',
-              fontWeight: 500,
-              cursor: 'pointer',
-              userSelect: 'none'
-            }}>
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                style={{
-                  accentColor: '#2563eb',
-                  width: '15px',
-                  height: '15px',
-                  cursor: 'pointer'
-                }}
-              />
-              Keep me signed in
-            </label>
-
-            <Link
-              to="/forgot-password"
-              style={{
-                fontSize: '0.82rem',
-                color: '#2563eb',
-                fontWeight: 600,
-                textDecoration: 'none'
-              }}
-              onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-              onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-            >
-              Forgot Password?
-            </Link>
-          </div>
-
-          {/* Login Button */}
           <button
             type="submit"
             disabled={loading}
@@ -379,20 +286,19 @@ const Login = () => {
             onMouseEnter={(e) => { if (!loading) e.currentTarget.style.filter = 'brightness(1.08)'; }}
             onMouseLeave={(e) => { if (!loading) e.currentTarget.style.filter = 'none'; }}
           >
-            {loading ? 'Authenticating...' : 'Sign In to Workspace'}
+            {loading ? 'Verifying Account...' : 'Continue to Reset Password'}
           </button>
         </form>
 
-        {/* Bottom Registration Link */}
         <div style={{
           textAlign: 'center',
           marginTop: '1.45rem',
           fontSize: '0.82rem',
           color: '#64748b'
         }}>
-          New workforce member?{' '}
+          Remember your password?{' '}
           <Link
-            to="/signup"
+            to="/login"
             style={{
               color: '#2563eb',
               fontWeight: 700,
@@ -401,13 +307,12 @@ const Login = () => {
             onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
             onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
           >
-            Register Account
+            Back to Sign In
           </Link>
         </div>
 
       </div>
 
-      {/* Footer copyright */}
       <div style={{
         marginTop: '1.75rem',
         fontSize: '0.75rem',
@@ -423,4 +328,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default ForgotPassword;

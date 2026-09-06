@@ -1,72 +1,73 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../utils/api';
-import { User, Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Lock, Eye, EyeOff, AlertCircle, CheckCircle, Mail } from 'lucide-react';
 
-const Signup = () => {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+const ResetPassword = () => {
+  const [searchParams] = useSearchParams();
+  const emailParam = searchParams.get('email') || '';
+
+  const [email, setEmail] = useState(emailParam);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [agreed, setAgreed] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [focusedField, setFocusedField] = useState('');
+
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { setUser } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (emailParam) {
+      setEmail(emailParam);
+    }
+  }, [emailParam]);
 
-    if (!fullName.trim() || !email.trim() || !password) {
-      setError('Please fill in all required fields.');
+  const handleSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!email.trim()) {
+      setError('Please provide your account email');
+      return;
+    }
+
+    if (!password || !confirmPassword) {
+      setError('Please fill in both password fields');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError('Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+      setError('Password must be at least 6 characters');
       return;
     }
-
-    if (!agreed) {
-      setError('Please accept the Terms of Service & Privacy Policy.');
-      return;
-    }
-
-    const nameParts = fullName.trim().split(/\s+/);
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || nameParts[0] || 'User';
 
     try {
-      setError('');
       setLoading(true);
-
-      const res = await api.post('/auth/register', {
-        firstName,
-        lastName,
-        email: email.trim().toLowerCase(),
+      const res = await api.post('/auth/reset-password', {
+        email: email.trim(),
         password,
-        role: 'employee',
       });
 
-      if (res && res.success) {
-        localStorage.setItem('ems_token', res.token);
-        if (setUser) setUser(res.user);
-        navigate('/dashboard');
+      if (res.success) {
+        setSuccess('Your password has been successfully reset! Redirecting to login...');
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
       } else {
-        setError(res?.message || 'Registration failed. Please try again.');
+        setError(res.message || 'Failed to reset password');
       }
     } catch (err) {
-      setError(err.message || 'Unable to connect to server.');
+      setError(err.message || 'Connection to server failed');
     } finally {
       setLoading(false);
     }
@@ -184,19 +185,18 @@ const Signup = () => {
         </p>
       </div>
 
-      {/* ── Main Clean Register Card ── */}
+      {/* ── Main Clean Card ── */}
       <div style={{
         position: 'relative',
         zIndex: 2,
         width: '100%',
-        maxWidth: '480px',
+        maxWidth: '460px',
         backgroundColor: '#ffffff',
         borderRadius: '20px',
         padding: '2.25rem 2.5rem',
         boxShadow: '0 20px 40px -15px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(226, 232, 240, 0.8)'
       }}>
 
-        {/* Card Header */}
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <h2 style={{
             fontSize: '1.35rem',
@@ -204,18 +204,17 @@ const Signup = () => {
             color: '#0f172a',
             margin: '0 0 0.35rem 0'
           }}>
-            Create Your Account
+            Set New Password
           </h2>
           <p style={{
             fontSize: '0.82rem',
             color: '#64748b',
             margin: 0
           }}>
-            Enter your details below to register on the platform
+            Choose a strong password for your account
           </p>
         </div>
 
-        {/* Error Alert */}
         {error && (
           <div style={{
             display: 'flex',
@@ -234,55 +233,26 @@ const Signup = () => {
           </div>
         )}
 
-        {/* Register Form */}
-        <form onSubmit={handleSubmit}>
-
-          {/* Full Name */}
-          <div style={{ marginBottom: '1.05rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              color: '#334155',
-              marginBottom: '0.45rem'
-            }}>
-              Full Name
-            </label>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              height: '44px',
-              backgroundColor: '#ffffff',
-              border: focusedField === 'fullName' ? '1.5px solid #2563eb' : '1.5px solid #cbd5e1',
-              borderRadius: '10px',
-              padding: '0 0.85rem',
-              transition: 'all 0.2s ease',
-              boxShadow: focusedField === 'fullName' ? '0 0 0 3px rgba(37, 99, 235, 0.12)' : 'none'
-            }}>
-              <User size={16} color="#94a3b8" style={{ flexShrink: 0 }} />
-              <input
-                type="text"
-                placeholder="Enter Full Name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                onFocus={() => setFocusedField('fullName')}
-                onBlur={() => setFocusedField('')}
-                required
-                style={{
-                  border: 'none',
-                  outline: 'none',
-                  background: 'transparent',
-                  width: '100%',
-                  marginLeft: '0.65rem',
-                  fontSize: '0.88rem',
-                  color: '#0f172a',
-                  fontFamily: 'inherit'
-                }}
-              />
-            </div>
+        {success && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.55rem',
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            color: '#16a34a',
+            borderRadius: '10px',
+            padding: '0.65rem 0.85rem',
+            fontSize: '0.82rem',
+            marginBottom: '1.25rem'
+          }}>
+            <CheckCircle size={16} />
+            <span>{success}</span>
           </div>
+        )}
 
-          {/* Email Address */}
+        <form onSubmit={handleSubmit}>
+          {/* Email (Readonly or editable) */}
           <div style={{ marginBottom: '1.05rem' }}>
             <label style={{
               display: 'block',
@@ -291,18 +261,16 @@ const Signup = () => {
               color: '#334155',
               marginBottom: '0.45rem'
             }}>
-              Work Email Address
+              Account Email
             </label>
             <div style={{
               display: 'flex',
               alignItems: 'center',
               height: '44px',
-              backgroundColor: '#ffffff',
-              border: focusedField === 'email' ? '1.5px solid #2563eb' : '1.5px solid #cbd5e1',
+              backgroundColor: emailParam ? '#f8fafc' : '#ffffff',
+              border: '1.5px solid #cbd5e1',
               borderRadius: '10px',
               padding: '0 0.85rem',
-              transition: 'all 0.2s ease',
-              boxShadow: focusedField === 'email' ? '0 0 0 3px rgba(37, 99, 235, 0.12)' : 'none'
             }}>
               <Mail size={16} color="#94a3b8" style={{ flexShrink: 0 }} />
               <input
@@ -310,8 +278,7 @@ const Signup = () => {
                 placeholder="name@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField('')}
+                readOnly={!!emailParam}
                 required
                 style={{
                   border: 'none',
@@ -327,7 +294,7 @@ const Signup = () => {
             </div>
           </div>
 
-          {/* Password */}
+          {/* New Password */}
           <div style={{ marginBottom: '1.05rem' }}>
             <label style={{
               display: 'block',
@@ -336,7 +303,7 @@ const Signup = () => {
               color: '#334155',
               marginBottom: '0.45rem'
             }}>
-              Create Password
+              New Password
             </label>
             <div style={{
               display: 'flex',
@@ -389,7 +356,7 @@ const Signup = () => {
           </div>
 
           {/* Confirm Password */}
-          <div style={{ marginBottom: '1.15rem' }}>
+          <div style={{ marginBottom: '1.45rem' }}>
             <label style={{
               display: 'block',
               fontSize: '0.8rem',
@@ -397,7 +364,7 @@ const Signup = () => {
               color: '#334155',
               marginBottom: '0.45rem'
             }}>
-              Confirm Password
+              Confirm New Password
             </label>
             <div style={{
               display: 'flex',
@@ -413,7 +380,7 @@ const Signup = () => {
               <Lock size={16} color="#94a3b8" style={{ flexShrink: 0 }} />
               <input
                 type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="Repeat password"
+                placeholder="Repeat new password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 onFocus={() => setFocusedField('confirmPassword')}
@@ -449,49 +416,6 @@ const Signup = () => {
             </div>
           </div>
 
-          {/* Agree to Terms & Privacy Policy */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            marginBottom: '1.45rem',
-            gap: '0.55rem'
-          }}>
-            <input
-              type="checkbox"
-              id="termsAgreement"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              style={{
-                accentColor: '#2563eb',
-                width: '16px',
-                height: '16px',
-                marginTop: '2px',
-                cursor: 'pointer',
-                flexShrink: 0
-              }}
-            />
-            <label
-              htmlFor="termsAgreement"
-              style={{
-                fontSize: '0.8rem',
-                color: '#475569',
-                cursor: 'pointer',
-                userSelect: 'none',
-                lineHeight: 1.45
-              }}
-            >
-              I agree to the{' '}
-              <span style={{ color: '#2563eb', fontWeight: 600 }}>
-                Terms of Service
-              </span>{' '}
-              and{' '}
-              <span style={{ color: '#2563eb', fontWeight: 600 }}>
-                Privacy Policy
-              </span>
-            </label>
-          </div>
-
-          {/* Register Button */}
           <button
             type="submit"
             disabled={loading}
@@ -515,18 +439,17 @@ const Signup = () => {
             onMouseEnter={(e) => { if (!loading) e.currentTarget.style.filter = 'brightness(1.08)'; }}
             onMouseLeave={(e) => { if (!loading) e.currentTarget.style.filter = 'none'; }}
           >
-            {loading ? 'Creating Account...' : 'Create Account'}
+            {loading ? 'Updating Password...' : 'Reset Password'}
           </button>
         </form>
 
-        {/* Bottom Login Link */}
         <div style={{
           textAlign: 'center',
           marginTop: '1.45rem',
           fontSize: '0.82rem',
           color: '#64748b'
         }}>
-          Already have an account?{' '}
+          Remember your password?{' '}
           <Link
             to="/login"
             style={{
@@ -537,13 +460,12 @@ const Signup = () => {
             onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
             onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
           >
-            Sign In
+            Back to Sign In
           </Link>
         </div>
 
       </div>
 
-      {/* Footer copyright */}
       <div style={{
         marginTop: '1.75rem',
         fontSize: '0.75rem',
@@ -559,4 +481,4 @@ const Signup = () => {
   );
 };
 
-export default Signup;
+export default ResetPassword;

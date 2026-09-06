@@ -338,6 +338,9 @@ const PerformanceInsightsTab = ({ showToast }) => {
 // ==========================================
 // MAIN PERFORMANCE COMPONENT
 // ==========================================
+let cachedPerformanceReviews = null;
+let cachedPerformanceEmployees = null;
+
 const Performance = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('reviews');
@@ -349,10 +352,30 @@ const Performance = () => {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  // Reviews-specific states
-  const [reviews, setReviews] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Reviews-specific states with Instant Initial Cache
+  const [reviews, setReviews] = useState(() => {
+    if (cachedPerformanceReviews) return cachedPerformanceReviews;
+    try {
+      const s = sessionStorage.getItem(`ems_cached_perf_${user?.role}`);
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
+
+  const [employees, setEmployees] = useState(() => {
+    if (cachedPerformanceEmployees) return cachedPerformanceEmployees;
+    try {
+      const s = sessionStorage.getItem('ems_cached_perf_emps');
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
+
+  const [loading, setLoading] = useState(() => {
+    if (cachedPerformanceReviews) return false;
+    try {
+      return !sessionStorage.getItem(`ems_cached_perf_${user?.role}`);
+    } catch(e) { return true; }
+  });
+
   const [error, setError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
@@ -369,14 +392,18 @@ const Performance = () => {
 
   const isEmployee = user?.role === 'employee';
 
-  const fetchReviews = async () => {
+  const fetchReviews = async (forceSpinner = false) => {
     try {
-      setLoading(true);
+      if (forceSpinner || !reviews.length) setLoading(true);
       setError('');
       const res = await api.get('/performance');
-      if (res.success) setReviews(res.data);
+      if (res.success) {
+        setReviews(res.data);
+        cachedPerformanceReviews = res.data;
+        try { sessionStorage.setItem(`ems_cached_perf_${user?.role}`, JSON.stringify(res.data)); } catch(e) {}
+      }
     } catch (err) {
-      setError(err.message || 'Failed to fetch reviews');
+      if (!reviews.length) setError(err.message || 'Failed to fetch reviews');
     } finally {
       setLoading(false);
     }
@@ -388,7 +415,9 @@ const Performance = () => {
       const res = await api.get('/employees');
       if (res.success) {
         setEmployees(res.employees);
-        if (res.employees.length > 0) {
+        cachedPerformanceEmployees = res.employees;
+        try { sessionStorage.setItem('ems_cached_perf_emps', JSON.stringify(res.employees)); } catch(e) {}
+        if (res.employees.length > 0 && !formData.employeeId) {
           setFormData(prev => ({ ...prev, employeeId: res.employees[0]._id }));
         }
       }

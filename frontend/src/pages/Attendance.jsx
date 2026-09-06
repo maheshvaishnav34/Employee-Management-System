@@ -7,16 +7,42 @@ import {
   Calendar, Award, TrendingUp, HelpCircle, ArrowUpRight
 } from 'lucide-react';
 
+// Global in-memory cache for instant attendance navigation
+let cachedAttendanceLogs = null;
+let cachedEmployeesDropdown = null;
+let cachedRegularizations = null;
+
 const Attendance = () => {
   const { user } = useAuth();
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Instant initial cache state
+  const [logs, setLogs] = useState(() => {
+    if (cachedAttendanceLogs) return cachedAttendanceLogs;
+    try {
+      const s = sessionStorage.getItem(`ems_cached_att_${user?.role}`);
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
+  
+  const [loading, setLoading] = useState(() => {
+    if (cachedAttendanceLogs) return false;
+    try {
+      return !sessionStorage.getItem(`ems_cached_att_${user?.role}`);
+    } catch(e) { return true; }
+  });
+  
   const [error, setError] = useState('');
   
   // Admin filters
   const [dateFilter, setDateFilter] = useState('');
   const [employeeSearch, setEmployeeSearch] = useState('');
-  const [employees, setEmployees] = useState([]); // list for employee selection dropdown
+  const [employees, setEmployees] = useState(() => {
+    if (cachedEmployeesDropdown) return cachedEmployeesDropdown;
+    try {
+      const s = sessionStorage.getItem('ems_cached_att_emps');
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
   
   // Calendar states
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -24,7 +50,13 @@ const Attendance = () => {
   const isAdminOrHR = ['admin', 'hr', 'manager'].includes(user?.role);
 
   // Regularization states
-  const [regularizations, setRegularizations] = useState([]);
+  const [regularizations, setRegularizations] = useState(() => {
+    if (cachedRegularizations) return cachedRegularizations;
+    try {
+      const s = sessionStorage.getItem(`ems_cached_reg_${user?.role}`);
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
   const [regFormData, setRegFormData] = useState({
     date: '',
@@ -38,9 +70,9 @@ const Attendance = () => {
   const [regError, setRegError] = useState('');
   const [regSuccess, setRegSuccess] = useState('');
 
-  const fetchAttendanceLogs = async () => {
+  const fetchAttendanceLogs = async (forceSpinner = false) => {
     try {
-      setLoading(true);
+      if (forceSpinner || !logs.length) setLoading(true);
       setError('');
       if (isAdminOrHR) {
         // Admin log query builder
@@ -52,16 +84,24 @@ const Attendance = () => {
         const data = await api.get(`/attendance/logs${queryStr}`);
         if (data.success) {
           setLogs(data.logs);
+          if (!dateFilter && !employeeSearch) {
+            cachedAttendanceLogs = data.logs;
+            try { sessionStorage.setItem(`ems_cached_att_${user?.role}`, JSON.stringify(data.logs)); } catch(e) {}
+          }
         }
       } else {
         // Employee logs fetch
         const data = await api.get('/attendance/my-logs');
         if (data.success) {
           setLogs(data.logs);
+          cachedAttendanceLogs = data.logs;
+          try { sessionStorage.setItem(`ems_cached_att_${user?.role}`, JSON.stringify(data.logs)); } catch(e) {}
         }
       }
     } catch (err) {
-      setError(err.message || 'Failed to load attendance logs');
+      if (!logs.length) {
+        setError(err.message || 'Failed to load attendance logs');
+      }
     } finally {
       setLoading(false);
     }
@@ -73,6 +113,8 @@ const Attendance = () => {
         const data = await api.get('/employees');
         if (data.success) {
           setEmployees(data.employees);
+          cachedEmployeesDropdown = data.employees;
+          try { sessionStorage.setItem('ems_cached_att_emps', JSON.stringify(data.employees)); } catch(e) {}
         }
       }
     } catch (err) {
@@ -86,6 +128,8 @@ const Attendance = () => {
       const data = await api.get(endpoint);
       if (data.success) {
         setRegularizations(data.regularizations);
+        cachedRegularizations = data.regularizations;
+        try { sessionStorage.setItem(`ems_cached_reg_${user?.role}`, JSON.stringify(data.regularizations)); } catch(e) {}
       }
     } catch (err) {
       console.error('Failed to load regularization requests', err.message);
@@ -346,7 +390,7 @@ const Attendance = () => {
       {!isAdminOrHR ? (
         <>
           {/* EMPLOYEE VIEW - Portal + Interactive Calendar Sheet */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', alignItems: 'start', marginBottom: '2rem' }} className="attendance-layout">
+        <div className="attendance-layout attendance-layout-grid">
           
           {/* Left Column: Punch Portal Console */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -509,7 +553,7 @@ const Attendance = () => {
         </div>
 
         {/* Work Hours & Overtime Analytics Section */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 2fr', gap: '2rem', marginTop: '2rem', marginBottom: '2rem' }} className="attendance-layout">
+        <div className="attendance-layout attendance-layout-grid" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
           {/* Analytics Summary Stats Card */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem' }}>
             <span className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
@@ -637,9 +681,9 @@ const Attendance = () => {
         </div>
 
         {/* My Correction Requests (Employee view only) */}
-        <div className="card" style={{ marginTop: '2rem', padding: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+        <div className="card table-responsive-wrapper" style={{ marginTop: '1.5rem', padding: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
               <CalendarCheck size={18} style={{ color: 'var(--primary-accent)' }} />
               My Correction Requests
             </h3>
@@ -699,14 +743,15 @@ const Attendance = () => {
       ) : (
         <>
           {/* Admin Tab Navigation */}
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div className="attendance-admin-tabs" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
             <button
               onClick={() => setAdminTab('logs')}
               className={`btn ${adminTab === 'logs' ? 'btn-primary' : 'btn-secondary'}`}
               style={{
-                padding: '0.6rem 1.5rem',
+                padding: '0.55rem 1.25rem',
                 borderRadius: '8px',
                 fontWeight: 700,
+                fontSize: '0.83rem',
                 boxShadow: adminTab === 'logs' ? '0 4px 15px rgba(103,119,239,0.2)' : 'none',
                 cursor: 'pointer'
               }}
@@ -717,9 +762,10 @@ const Attendance = () => {
               onClick={() => setAdminTab('requests')}
               className={`btn ${adminTab === 'requests' ? 'btn-primary' : 'btn-secondary'}`}
               style={{
-                padding: '0.6rem 1.5rem',
+                padding: '0.55rem 1.25rem',
                 borderRadius: '8px',
                 fontWeight: 700,
+                fontSize: '0.83rem',
                 boxShadow: adminTab === 'requests' ? '0 4px 15px rgba(103,119,239,0.2)' : 'none',
                 position: 'relative',
                 cursor: 'pointer'
@@ -751,30 +797,30 @@ const Attendance = () => {
 
           {adminTab === 'logs' && (
             /* ADMIN/HR CONTROLS & FILTER BAR */
-            <div className="card" style={{ marginBottom: '2rem', padding: '1.25rem 1.5rem' }}>
-              <span className="chart-title" style={{ marginBottom: '1rem' }}>Timesheet Filters & Search Console</span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+            <div className="card" style={{ marginBottom: '1.25rem', padding: '1.15rem 1.25rem' }}>
+              <span className="chart-title" style={{ marginBottom: '0.85rem' }}>Timesheet Filters & Search Console</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'flex-end' }}>
                 
                 {/* Date Picker Filter */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: '1 1 160px' }}>
                   <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Activity Date</label>
                   <input
                     type="date"
                     className="form-control"
                     value={dateFilter}
                     onChange={(e) => setDateFilter(e.target.value)}
-                    style={{ width: '180px' }}
+                    style={{ width: '100%' }}
                   />
                 </div>
 
                 {/* Employee Dropdown Selection */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: '1 1 200px' }}>
                   <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Target Employee</label>
                   <select
                     className="form-control"
                     value={employeeSearch}
                     onChange={(e) => setEmployeeSearch(e.target.value)}
-                    style={{ width: '230px' }}
+                    style={{ width: '100%' }}
                   >
                     <option value="">All Employees</option>
                     {employees.map((emp) => (
@@ -793,7 +839,7 @@ const Attendance = () => {
                       setEmployeeSearch('');
                     }}
                     className="btn btn-secondary"
-                    style={{ marginTop: 'auto', padding: '0.65rem 1.15rem', fontSize: '0.85rem' }}
+                    style={{ padding: '0.65rem 1.15rem', fontSize: '0.85rem', flex: '1 1 auto' }}
                   >
                     Reset Search
                   </button>
@@ -806,7 +852,7 @@ const Attendance = () => {
 
       {/* TIMESHEET TABLE REPORT SECTION */}
       {(!isAdminOrHR || (isAdminOrHR && adminTab === 'logs')) && (
-        <div className="table-container">
+        <div className="table-container table-responsive-wrapper">
           <div className="table-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span className="table-title">
               {isAdminOrHR ? 'Global Company Timesheet' : 'Personal Punch History Log'}
@@ -925,9 +971,9 @@ const Attendance = () => {
 
       {/* HR/ADMIN CORRECTION REQUESTS SECTION */}
       {isAdminOrHR && adminTab === 'requests' && (
-        <div className="table-container">
+        <div className="table-container table-responsive-wrapper">
           <div className="table-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="table-title">Correction & Regularization Requests</span>
+            <span className="table-title">Correction &amp; Regularization Requests</span>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
               Total requests: {regularizations.length} entries
             </span>
@@ -948,7 +994,7 @@ const Attendance = () => {
                     <th>Requested Clock Out</th>
                     <th>Reason</th>
                     <th>Status</th>
-                    <th>Actions & Remarks</th>
+                    <th>Actions &amp; Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -999,7 +1045,7 @@ const Attendance = () => {
                         </td>
                         <td>
                           {isPending ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', minWidth: '220px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', minWidth: '200px' }}>
                               <input
                                 type="text"
                                 className="form-control"

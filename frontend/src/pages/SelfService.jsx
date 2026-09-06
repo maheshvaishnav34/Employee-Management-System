@@ -50,11 +50,32 @@ const CARDS_CONFIG = [
   },
 ];
 
+// Global cache for instant self-service portal navigation
+let cachedSelfServicePayslips = null;
+let cachedSelfServiceProfile = null;
+
 const SelfService = () => {
   const { user } = useAuth();
-  const [payslips, setPayslips] = useState([]);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [payslips, setPayslips] = useState(() => {
+    if (cachedSelfServicePayslips) return cachedSelfServicePayslips;
+    try {
+      const s = sessionStorage.getItem('ems_cached_self_payslips');
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
+  const [profile, setProfile] = useState(() => {
+    if (cachedSelfServiceProfile) return cachedSelfServiceProfile;
+    try {
+      const s = sessionStorage.getItem('ems_cached_self_profile');
+      return s ? JSON.parse(s) : null;
+    } catch(e) { return null; }
+  });
+  const [loading, setLoading] = useState(() => {
+    if (cachedSelfServicePayslips && cachedSelfServiceProfile) return false;
+    try {
+      return !sessionStorage.getItem('ems_cached_self_payslips');
+    } catch(e) { return true; }
+  });
   const [msg, setMsg] = useState('');
 
   // Modals state
@@ -73,8 +94,16 @@ const SelfService = () => {
           api.get('/payroll/my'),
           api.get('/auth/me'),
         ]);
-        if (payRes.success) setPayslips(payRes.payrolls || []);
-        if (meRes.success) setProfile(meRes.user);
+        if (payRes.success) {
+          setPayslips(payRes.payrolls || []);
+          cachedSelfServicePayslips = payRes.payrolls || [];
+          try { sessionStorage.setItem('ems_cached_self_payslips', JSON.stringify(payRes.payrolls || [])); } catch(e) {}
+        }
+        if (meRes.success) {
+          setProfile(meRes.user);
+          cachedSelfServiceProfile = meRes.user;
+          try { sessionStorage.setItem('ems_cached_self_profile', JSON.stringify(meRes.user)); } catch(e) {}
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -288,7 +317,7 @@ const SelfService = () => {
           </div>
 
           {/* Dynamic Payslips Table */}
-          <div id="payslip-history-table" className="table-container" style={{ marginBottom: '2rem' }}>
+          <div id="payslip-history-table" className="table-container table-responsive-wrapper" style={{ marginBottom: '2rem' }}>
             <div className="table-header-row">
               <span className="table-title">Your Payslip History ({payslips.length})</span>
             </div>
@@ -355,7 +384,7 @@ const SelfService = () => {
           </div>
 
           {/* Change Request Tickets Form & Tracker */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '1.5rem', flexWrap: 'wrap' }}>
+          <div className="dashboard-grid-split" style={{ marginBottom: '2rem' }}>
             {/* Ticket form */}
             <div className="card" style={{ padding: '1.5rem' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>

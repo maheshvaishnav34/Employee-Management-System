@@ -312,12 +312,33 @@ const updateMyProfile = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No employee record linked to this account' });
     }
 
-    // Employees can update: phone, dateOfBirth, gender, emergencyContact, address, skills, profileImage, socialLinks, bio, coverImage
-    const allowedFields = ['phone', 'dateOfBirth', 'gender', 'emergencyContact', 'address', 'skills', 'profileImage', 'socialLinks', 'bio', 'coverImage'];
+    // Employees can update: firstName, lastName, phone, dateOfBirth, gender, emergencyContact, address, skills, profileImage, socialLinks, bio, coverImage
+    const allowedFields = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'gender', 'emergencyContact', 'address', 'skills', 'profileImage', 'socialLinks', 'bio', 'coverImage'];
     const updates = {};
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) updates[field] = req.body[field];
     });
+
+    // Handle email update if provided
+    if (req.body.email && req.body.email.trim()) {
+      const newEmail = req.body.email.trim().toLowerCase();
+      // Validate email format
+      const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+      if (!emailRegex.test(newEmail)) {
+        return res.status(400).json({ success: false, message: 'Please provide a valid email / gmail address' });
+      }
+
+      // Check if duplicate in other accounts
+      const existingUser = await User.findOne({ email: newEmail, _id: { $ne: req.user._id } });
+      const existingEmp = await Employee.findOne({ email: newEmail, _id: { $ne: req.user.employee } });
+      if (existingUser || existingEmp) {
+        return res.status(400).json({ success: false, message: 'This email address is already in use by another account' });
+      }
+
+      updates.email = newEmail;
+      // Also update linked User account
+      await User.findByIdAndUpdate(req.user._id, { email: newEmail });
+    }
 
     const employee = await Employee.findByIdAndUpdate(
       req.user.employee,

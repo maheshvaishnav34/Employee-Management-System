@@ -14,10 +14,24 @@ const CATEGORY_COLORS = {
   Other: { bg: 'rgba(100,116,139,0.1)', color: '#64748b' },
 };
 
+// Global cache for instant documents navigation
+let cachedDocumentsList = null;
+
 const Documents = () => {
   const { user } = useAuth();
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [documents, setDocuments] = useState(() => {
+    if (cachedDocumentsList) return cachedDocumentsList;
+    try {
+      const s = sessionStorage.getItem('ems_cached_documents');
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
+  const [loading, setLoading] = useState(() => {
+    if (cachedDocumentsList) return false;
+    try {
+      return !sessionStorage.getItem('ems_cached_documents');
+    } catch(e) { return true; }
+  });
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -34,14 +48,18 @@ const Documents = () => {
 
   const isHRPlus = ['admin', 'hr'].includes(user?.role);
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = async (forceSpinner = false) => {
     try {
-      setLoading(true);
+      if (forceSpinner || !documents.length) setLoading(true);
       setError('');
       const res = await api.get('/documents');
-      if (res.success) setDocuments(res.documents);
+      if (res.success) {
+        setDocuments(res.documents);
+        cachedDocumentsList = res.documents;
+        try { sessionStorage.setItem('ems_cached_documents', JSON.stringify(res.documents)); } catch(e) {}
+      }
     } catch (e) {
-      setError(e.message);
+      if (!documents.length) setError(e.message);
     } finally {
       setLoading(false);
     }

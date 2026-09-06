@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -13,7 +13,7 @@ import useRealtimeNotifications from '../hooks/useRealtimeNotifications';
 /* ─────────────── tiny helpers ───────────────── */
 const timeAgo = (ms) => {
   const s = Math.floor(ms / 1000);
-  if (s < 5)  return 'just now';
+  if (s < 5) return 'just now';
   if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m ago`;
@@ -46,13 +46,13 @@ const resolveColor = (color) => {
   if (color && color.startsWith('var(')) {
     const varName = color.slice(4, -1);
     const map = {
-      '--primary-accent': '#6777ef',
-      '--success': '#2ebd7f',
-      '--warning': '#ffb119',
-      '--danger': '#ff5b5b',
-      '--info': '#00bcd4'
+      '--primary-accent': '#2563eb',
+      '--success': '#10b981',
+      '--warning': '#f59e0b',
+      '--danger': '#ef4444',
+      '--info': '#0284c7'
     };
-    return map[varName] || '#6777ef';
+    return map[varName] || '#2563eb';
   }
   return color;
 };
@@ -119,10 +119,10 @@ const StatCard = ({ label, value, icon: Icon, color, alert }) => {
 /* ─────────────── connection badge ──────────── */
 const ConnectionBadge = ({ status }) => {
   const cfg = {
-    live:       { color: 'var(--success)', icon: Wifi,    label: 'Live' },
-    polling:    { color: 'var(--warning)', icon: WifiOff, label: 'Polling' },
-    connecting: { color: 'var(--info)',    icon: Wifi,    label: 'Connecting…' },
-    error:      { color: 'var(--danger)',  icon: WifiOff, label: 'Offline' },
+    live: { color: 'var(--success)', icon: Wifi, label: 'Live' },
+    polling: { color: 'var(--warning)', icon: WifiOff, label: 'Polling' },
+    connecting: { color: 'var(--info)', icon: Wifi, label: 'Connecting…' },
+    error: { color: 'var(--danger)', icon: WifiOff, label: 'Offline' },
   }[status] || { color: 'var(--text-secondary)', icon: WifiOff, label: status };
 
   const Icon = cfg.icon;
@@ -138,11 +138,19 @@ const ConnectionBadge = ({ status }) => {
   );
 };
 
+const ROLE_MAP = {
+  admin: { label: 'SUPER ADMIN', color: '#ff5b5b', bg: 'rgba(255,91,91,0.12)', border: 'rgba(255,91,91,0.25)' },
+  hr: { label: 'HR ADMIN', color: '#ffb119', bg: 'rgba(255,177,25,0.12)', border: 'rgba(255,177,25,0.25)' },
+  manager: { label: 'MANAGER', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)' },
+  employee: { label: 'EMPLOYEE', color: '#2ebd7f', bg: 'rgba(46,189,127,0.12)', border: 'rgba(46,189,127,0.25)' },
+};
+
 /* ═══════════════ NAVBAR ══════════════════════ */
-const Navbar = ({ collapsed, setCollapsed }) => {
+const Navbar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isAuthorized = !!user;
 
@@ -153,6 +161,8 @@ const Navbar = ({ collapsed, setCollapsed }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [bellShaking, setBellShaking] = useState(false);
   const dropdownRef = useRef(null);
+
+  const currentRole = ROLE_MAP[user?.role] || { label: user?.role?.toUpperCase() || 'STAFF', color: 'var(--primary-accent)', bg: 'rgba(103,119,239,0.12)', border: 'rgba(103,119,239,0.25)' };
 
   /* Shake bell whenever a new alert fires */
   useEffect(() => {
@@ -185,34 +195,46 @@ const Navbar = ({ collapsed, setCollapsed }) => {
     setTimeout(() => setRefreshing(false), 600);
   };
 
+  const handleToggleSidebar = () => {
+    if (window.innerWidth <= 768) {
+      if (setMobileOpen) setMobileOpen(!mobileOpen);
+    } else {
+      if (setCollapsed) setCollapsed(!collapsed);
+    }
+  };
+
   const getPageTitle = () => {
     const p = location.pathname;
-    if (p.startsWith('/dashboard'))   return 'Dashboard Analytics';
-    if (p.startsWith('/employees'))   return 'Employee Directory';
+    if (p.startsWith('/dashboard')) return 'Dashboard Analytics';
+    if (p.startsWith('/employees')) return 'Employee Directory';
     if (p.startsWith('/departments')) return 'Department Directory';
-    if (p.startsWith('/attendance'))  return 'Attendance Logs';
-    if (p.startsWith('/leaves'))      return 'Leave Management';
-    if (p.startsWith('/payroll'))     return 'Payroll Board';
+    if (p.startsWith('/attendance')) return 'Attendance Logs';
+    if (p.startsWith('/leaves')) return 'Leave Management';
+    if (p.startsWith('/payroll')) return 'Payroll Board';
     if (p.startsWith('/recruitment')) return 'Recruitment Center';
     if (p.startsWith('/performance')) return 'Performance Reviews';
-    if (p.startsWith('/tasks'))       return 'Task Manager';
-    if (p.startsWith('/directory'))   return 'Colleague Directory';
-    if (p.startsWith('/rewards'))     return 'Rewards & Trophies';
+    if (p.startsWith('/tasks')) return 'Task Manager';
+    if (p.startsWith('/training')) return 'Training & Development';
+    if (p.startsWith('/documents')) return 'Document Vault';
+    if (p.startsWith('/complaints')) return 'Grievance & Complaints';
+    if (p.startsWith('/resignations')) return 'Resignations & Offboarding';
+    if (p.startsWith('/directory')) return 'Colleague Directory';
+    if (p.startsWith('/shifts')) return 'Shift Planner & Roster';
+    if (p.startsWith('/rewards')) return 'Rewards & Recognitions';
     if (p.startsWith('/self-service')) return 'Employee Self Service';
-    if (p.startsWith('/assets'))      return 'Asset Inventory';
-    if (p.startsWith('/expenses'))     return 'Expense Claims';
-    if (p.startsWith('/shifts'))      return 'Shift Planner';
-    if (p.startsWith('/documents'))   return 'Document Vault';
-    if (p.startsWith('/chat'))        return 'Team Chatroom';
-    if (p.startsWith('/admin'))       return 'Admin Panel';
-    if (p.startsWith('/profile'))     return 'My Corporate Profile';
+    if (p.startsWith('/assets')) return 'Asset Inventory';
+    if (p.startsWith('/expenses')) return 'Expense Claims';
+    if (p.startsWith('/chat')) return 'Team Chatroom';
+    if (p.startsWith('/admin')) return 'Admin Panel';
+    if (p.startsWith('/profile')) return 'My Corporate Profile';
     if (p.startsWith('/reports/standardreport/insummaryreports')) return 'In Summary Report';
     if (p.startsWith('/reports/standardreport/employeedirectory')) return 'Employee Directory Report';
     if (p.startsWith('/reports/standardreport/attendanceaudit')) return 'Attendance Audit Sheet';
     if (p.startsWith('/reports/standardreport/payrollledger')) return 'Payroll Ledger Report';
     if (p.startsWith('/reports/standardreport/leaveallocation')) return 'Leave Allocation Sheet';
-    if (p.startsWith('/reports'))     return 'System Reports Console';
-    return 'EMS Board';
+    if (p.startsWith('/reports/standardreport/productivity')) return 'Productivity Analysis Sheet';
+    if (p.startsWith('/reports')) return 'System Reports Console';
+    return 'EMS Hub';
   };
 
   /* badge count */
@@ -275,10 +297,10 @@ const Navbar = ({ collapsed, setCollapsed }) => {
         .bell-btn:hover { background: var(--bg-sidebar-active) !important; color: var(--primary-accent) !important; }
       `}</style>
 
-      <header className="navbar" style={{ position: 'relative' }}>
+      <header className="navbar">
         {/* ── Left ── */}
         <div className="navbar-left">
-          <button className="sidebar-toggle-btn" onClick={() => setCollapsed(!collapsed)} title="Toggle Sidebar">
+          <button className="sidebar-toggle-btn" onClick={handleToggleSidebar} title="Toggle Sidebar">
             <Menu size={22} />
           </button>
           <h1 className="navbar-page-title">{getPageTitle()}</h1>
@@ -572,9 +594,52 @@ const Navbar = ({ collapsed, setCollapsed }) => {
             </div>
           )}
 
+          {/* Quick User Profile chip */}
+          {user && (
+            <button
+              onClick={() => navigate('/profile')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.55rem',
+                background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+                borderRadius: '10px', padding: '0.3rem 0.65rem', cursor: 'pointer',
+                transition: 'all 0.2s', flexShrink: 0
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary-accent)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; }}
+              title="View Corporate Profile"
+            >
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: 'linear-gradient(135deg, var(--primary-accent), #818cf8)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0,
+                overflow: 'hidden'
+              }}>
+                {user?.employee?.profileImage ? (
+                  <img src={user.employee.profileImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  (user?.username || 'U')[0].toUpperCase()
+                )}
+              </div>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user?.username || 'Profile'}
+              </span>
+            </button>
+          )}
+
           {/* Role badge */}
-          <span className="badge badge-pending" style={{ fontSize: '0.78rem', padding: '0.38rem 0.85rem', flexShrink: 0 }}>
-            {user?.role?.toUpperCase()}
+          <span style={{
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            padding: '0.35rem 0.8rem',
+            borderRadius: '8px',
+            background: currentRole.bg,
+            color: currentRole.color,
+            border: `1px solid ${currentRole.border}`,
+            letterSpacing: '0.04em',
+            flexShrink: 0
+          }}>
+            {currentRole.label}
           </span>
         </div>
       </header>

@@ -107,11 +107,25 @@ app.use('/api/transfers', require('./routes/transferRoutes'));
 app.use('/api/resignations', require('./routes/resignationRoutes'));
 app.use('/api/manager/approvals', require('./routes/managerApprovalRoutes'));
 app.use('/api/insights', require('./routes/performanceInsightRoutes'));
+app.use('/api/complaints', require('./routes/complaintRoutes'));
+app.use('/api/training', require('./routes/trainingRoutes'));
 
 
-// Root path handler
-app.get('/', (req, res) => {
-  res.send('Employee Management System API is running...');
+const path = require('path');
+const frontendDist = path.join(__dirname, '../frontend/dist');
+app.use(express.static(frontendDist));
+
+// Root and SPA route handler (fallback to index.html for client routes)
+app.get('*', (req, res, next) => {
+  if (req.url.startsWith('/api')) {
+    return next();
+  }
+  const indexPath = path.join(frontendDist, 'index.html');
+  const fs = require('fs');
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  res.send('Employee Management System is running...');
 });
 
 // Error Handler Middleware

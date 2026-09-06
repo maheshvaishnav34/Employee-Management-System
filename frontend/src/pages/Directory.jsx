@@ -4,24 +4,51 @@ import { useAuth } from '../context/AuthContext';
 import { Users, Search, Building2, Mail, Phone, Filter } from 'lucide-react';
 import { SkeletonCardGrid } from '../components/Skeleton';
 
+// Global cache for instant directory navigation
+let cachedDirectoryEmployees = null;
+let cachedDirectoryDepartments = null;
+
 const Directory = () => {
   const { user } = useAuth();
-  const [employees, setEmployees] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState(() => {
+    if (cachedDirectoryEmployees) return cachedDirectoryEmployees;
+    try {
+      const s = sessionStorage.getItem('ems_cached_directory');
+      return s ? JSON.parse(s) : [];
+    } catch (e) { return []; }
+  });
+  const [departments, setDepartments] = useState(() => {
+    if (cachedDirectoryDepartments) return cachedDirectoryDepartments;
+    try {
+      const s = sessionStorage.getItem('ems_cached_directory_depts');
+      return s ? JSON.parse(s) : [];
+    } catch (e) { return []; }
+  });
+  const [loading, setLoading] = useState(() => {
+    if (cachedDirectoryEmployees) return false;
+    try {
+      return !sessionStorage.getItem('ems_cached_directory');
+    } catch (e) { return true; }
+  });
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // grid | dept
 
-  const fetchDirectory = async () => {
+  const fetchDirectory = async (forceSpinner = false) => {
     try {
-      setLoading(true);
+      if (forceSpinner || !employees.length) setLoading(true);
       const params = [];
       if (search) params.push(`search=${encodeURIComponent(search)}`);
       if (deptFilter) params.push(`department=${deptFilter}`);
       const qs = params.length ? `?${params.join('&')}` : '';
       const res = await api.get(`/employees/directory${qs}`);
-      if (res.success) setEmployees(res.employees);
+      if (res.success) {
+        setEmployees(res.employees);
+        if (!search && !deptFilter) {
+          cachedDirectoryEmployees = res.employees;
+          try { sessionStorage.setItem('ems_cached_directory', JSON.stringify(res.employees)); } catch (e) {}
+        }
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -32,7 +59,11 @@ const Directory = () => {
   const fetchDepts = async () => {
     try {
       const res = await api.get('/departments');
-      if (res.success) setDepartments(res.departments);
+      if (res.success) {
+        setDepartments(res.departments);
+        cachedDirectoryDepartments = res.departments;
+        try { sessionStorage.setItem('ems_cached_directory_depts', JSON.stringify(res.departments)); } catch (e) {}
+      }
     } catch (e) {}
   };
 

@@ -5,7 +5,8 @@ import {
   ShieldAlert, Users, ClipboardList, FileDown,
   ChevronDown, AlertCircle, Check, X, RefreshCw,
   UserCog, Activity, BarChart3, Search, Shield,
-  Mail, Clock, Calendar, DollarSign, Database, UploadCloud, FileText, CheckCircle2
+  Mail, Clock, Calendar, DollarSign, Database, UploadCloud, FileText, CheckCircle2,
+  FileSpreadsheet
 } from 'lucide-react';
 
 // Custom switch toggle component
@@ -68,30 +69,57 @@ const timeAgo = (date) => {
 };
 
 /* ═════════════════════════════════════════════════════ */
+// Global cache for instant admin panel navigation
+let cachedAdminOverview = null;
+let cachedAdminUsers = null;
+let cachedAdminAuditLogs = null;
+let cachedAdminSettings = null;
+
 const AdminPanel = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
 
-  const [overview, setOverview] = useState(null);
-  const [users, setUsers]       = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
+  const [overview, setOverview] = useState(() => {
+    if (cachedAdminOverview) return cachedAdminOverview;
+    try {
+      const s = sessionStorage.getItem('ems_cached_admin_overview');
+      return s ? JSON.parse(s) : null;
+    } catch(e) { return null; }
+  });
+  const [users, setUsers] = useState(() => {
+    if (cachedAdminUsers) return cachedAdminUsers;
+    try {
+      const s = sessionStorage.getItem('ems_cached_admin_users');
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
+  const [auditLogs, setAuditLogs] = useState(() => {
+    if (cachedAdminAuditLogs) return cachedAdminAuditLogs;
+    try {
+      const s = sessionStorage.getItem('ems_cached_admin_audit');
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [roleChangeId, setRoleChangeId] = useState(null);
   const [roleChangeVal, setRoleChangeVal] = useState('');
   const [exporting, setExporting] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   // Persistent system configurations
-  const [settings, setSettings] = useState({
-    companyName: 'EMS Hub Technologies',
-    contactEmail: 'support@emshub.io',
-    businessHours: '09:00 AM - 06:00 PM',
-    holidayPolicy: 'Standard 12 Paid Holidays',
-    enableBackups: true,
-    authLevel: 'JWT + Role Rules',
-    salaryRuleMin: 1000,
-    emailNotifications: true,
+  const [settings, setSettings] = useState(() => {
+    if (cachedAdminSettings) return cachedAdminSettings;
+    return {
+      companyName: 'EMS Hub Technologies',
+      contactEmail: 'support@emshub.io',
+      businessHours: '09:00 AM - 06:00 PM',
+      holidayPolicy: 'Standard 12 Paid Holidays',
+      enableBackups: true,
+      authLevel: 'JWT + Role Rules',
+      salaryRuleMin: 1000,
+      emailNotifications: true,
+    };
   });
 
   const [backingUp, setBackingUp] = useState(false);
@@ -102,26 +130,46 @@ const AdminPanel = () => {
   const [auditSearch, setAuditSearch] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState('');
 
-  const load = async (tab) => {
-    setLoading(true); setError(''); setSuccessMsg('');
+  const load = async (tab, forceSpinner = false) => {
+    const hasCache = 
+      (tab === 'overview' && overview) ||
+      (tab === 'users' && users.length) ||
+      (tab === 'audit' && auditLogs.length) ||
+      (tab === 'settings' && cachedAdminSettings);
+
+    if (forceSpinner || !hasCache) setLoading(true);
+    setError(''); setSuccessMsg('');
     try {
       if (tab === 'overview') {
         const res = await api.get('/admin/overview');
-        if (res.success) setOverview(res.overview);
+        if (res.success) {
+          setOverview(res.overview);
+          cachedAdminOverview = res.overview;
+          try { sessionStorage.setItem('ems_cached_admin_overview', JSON.stringify(res.overview)); } catch(e) {}
+        }
       } else if (tab === 'users') {
         const res = await api.get('/admin/users');
         if (res.success) {
           setUsers(res.users);
+          cachedAdminUsers = res.users;
+          try { sessionStorage.setItem('ems_cached_admin_users', JSON.stringify(res.users)); } catch(e) {}
         }
       } else if (tab === 'audit') {
         const res = await api.get('/admin/audit-logs?limit=50');
-        if (res.success) setAuditLogs(res.logs);
+        if (res.success) {
+          setAuditLogs(res.logs);
+          cachedAdminAuditLogs = res.logs;
+          try { sessionStorage.setItem('ems_cached_admin_audit', JSON.stringify(res.logs)); } catch(e) {}
+        }
       } else if (tab === 'settings') {
         const res = await api.get('/admin/settings');
-        if (res.success && res.settings) setSettings(res.settings);
+        if (res.success && res.settings) {
+          setSettings(res.settings);
+          cachedAdminSettings = res.settings;
+        }
       }
     } catch (e) {
-      setError(e.message);
+      if (!hasCache) setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -208,22 +256,115 @@ const AdminPanel = () => {
     } catch (e) { setError(e.message); }
   };
 
-  const handleExport = async (type) => {
-    setExporting(type);
+  const convertToCSV = (type, data) => {
+    if (!data || !Array.isArray(data) || data.length === 0) return '';
+    
+    if (type === 'employees') {
+      const headers = ['Employee ID', 'Full Name', 'Email', 'Phone', 'Department', 'Designation', 'Salary', 'Status'];
+      const rows = data.map(e => [
+        `"${e.employeeId || ''}"`,
+        `"${((e.firstName || '') + ' ' + (e.lastName || '')).trim()}"`,
+        `"${e.email || ''}"`,
+        `"${e.phone || ''}"`,
+        `"${e.department?.name || e.department || 'General'}"`,
+        `"${e.designation || 'Staff'}"`,
+        `"${e.salary || 0}"`,
+        `"${e.status || 'Active'}"`
+      ]);
+      return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    }
+    
+    if (type === 'attendance') {
+      const headers = ['Date', 'Employee ID', 'Employee Name', 'Clock In', 'Clock Out', 'Work Hours', 'Work Mode', 'Status'];
+      const rows = data.map(a => [
+        `"${a.date ? new Date(a.date).toLocaleDateString() : ''}"`,
+        `"${a.employee?.employeeId || 'N/A'}"`,
+        `"${((a.employee?.firstName || '') + ' ' + (a.employee?.lastName || '')).trim()}"`,
+        `"${a.clockIn || '--'}"`,
+        `"${a.clockOut || '--'}"`,
+        `"${a.workHours || a.calculatedHours || 0}"`,
+        `"${a.workMode || 'Office'}"`,
+        `"${a.status || 'Present'}"`
+      ]);
+      return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    }
+    
+    if (type === 'payroll') {
+      const headers = ['Month', 'Year', 'Employee ID', 'Employee Name', 'Basic Salary', 'Allowances', 'Deductions', 'Net Salary', 'Status'];
+      const rows = data.map(p => [
+        `"${p.month || ''}"`,
+        `"${p.year || ''}"`,
+        `"${p.employee?.employeeId || 'N/A'}"`,
+        `"${((p.employee?.firstName || '') + ' ' + (p.employee?.lastName || '')).trim()}"`,
+        `"${p.basicSalary || p.salary || 0}"`,
+        `"${p.allowances || 0}"`,
+        `"${p.deductions || 0}"`,
+        `"${p.netSalary || p.salary || 0}"`,
+        `"${p.status || 'Paid'}"`
+      ]);
+      return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    }
+    
+    if (type === 'leaves') {
+      const headers = ['Employee ID', 'Employee Name', 'Leave Type', 'Start Date', 'End Date', 'Days', 'Reason', 'Status'];
+      const rows = data.map(l => [
+        `"${l.employee?.employeeId || 'N/A'}"`,
+        `"${((l.employee?.firstName || '') + ' ' + (l.employee?.lastName || '')).trim()}"`,
+        `"${l.leaveType || 'Casual'}"`,
+        `"${l.startDate ? new Date(l.startDate).toLocaleDateString() : ''}"`,
+        `"${l.endDate ? new Date(l.endDate).toLocaleDateString() : ''}"`,
+        `"${l.days || 1}"`,
+        `"${(l.reason || '').replace(/"/g, '""')}"`,
+        `"${l.status || 'Pending'}"`
+      ]);
+      return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    }
+
+    // Generic fallback
+    const first = data[0];
+    const keys = Object.keys(first).filter(k => typeof first[k] !== 'object');
+    const headers = keys.join(',');
+    const rows = data.map(row => keys.map(k => `"${String(row[k] ?? '').replace(/"/g, '""')}"`).join(','));
+    return [headers, ...rows].join('\n');
+  };
+
+  const handleExport = async (type, format = 'csv') => {
+    setExporting(`${type}-${format}`);
+    setError('');
+    setSuccessMsg('');
     try {
       const res = await api.get(`/admin/reports/${type}`);
-      if (res.success) {
-        const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href     = url;
-        a.download = `${type}-report-${new Date().toISOString().split('T')[0]}.json`;
+      if (res && res.success && res.data) {
+        let blob;
+        const filename = `${type}_report_${new Date().toISOString().split('T')[0]}.${format}`;
+
+        if (format === 'csv') {
+          const csvText = convertToCSV(type, res.data);
+          blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+        } else {
+          blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
-        setSuccessMsg(`${type} report exported (${res.count} records)`);
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 150);
+
+        setSuccessMsg(`Successfully exported ${res.count || res.data.length} ${type} records as ${format.toUpperCase()}`);
+      } else {
+        setError(res?.message || 'Failed to generate report data.');
       }
-    } catch (e) { setError(e.message); }
-    finally { setExporting(''); }
+    } catch (e) {
+      setError(e.message || 'Report export failed');
+    } finally {
+      setExporting('');
+    }
   };
 
   // Filter computations
@@ -278,7 +419,7 @@ const AdminPanel = () => {
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '0' }}>
+      <div className="profile-tabs-header">
         {getTabs(user?.role).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -383,7 +524,7 @@ const AdminPanel = () => {
           </div>
 
           {/* Two-Column Grid: Distribution and Activity Feed */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 2fr', gap: '2rem', marginBottom: '2rem' }}>
+          <div className="dashboard-grid-split" style={{ marginBottom: '2rem' }}>
             {/* Left: Role distribution bars */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem' }}>
               <span className="chart-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
@@ -467,7 +608,7 @@ const AdminPanel = () => {
             </span>
           </div>
 
-          <div className="table-container">
+          <div className="table-container table-responsive-wrapper">
             <div className="table-header-row">
               <span className="table-title">User Account Registry</span>
             </div>
@@ -614,7 +755,7 @@ const AdminPanel = () => {
             )}
           </div>
 
-          <div className="table-container">
+          <div className="table-container table-responsive-wrapper">
             <div className="table-header-row">
               <span className="table-title">System Audit Log Trail</span>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Showing last 50 transactions</span>
@@ -678,56 +819,101 @@ const AdminPanel = () => {
       {/* ═══ TAB: REPORTS ═══ */}
       {!loading && activeTab === 'reports' && (
         <>
-          <div style={{ marginBottom: '2rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>Reports Generator Engine</h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.1rem 0 0 0' }}>
-              Export system modules snapshots into JSON files for data integration, backup archives, or analytics sheets.
-            </p>
+          <div style={{ marginBottom: '2rem', padding: '1.25rem 1.5rem', background: 'var(--bg-secondary)', borderRadius: '14px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>Reports Generator Engine</h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
+                Export live system snapshots directly into <strong>CSV (Excel)</strong> spreadsheets or structured <strong>JSON</strong> archives.
+              </p>
+            </div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '0.35rem 0.8rem', background: 'rgba(103,119,239,0.12)', color: 'var(--primary-accent)', borderRadius: '20px', border: '1px solid rgba(103,119,239,0.2)' }}>
+              4 Modules Ready for Export
+            </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))', gap: '1.5rem' }}>
             {[
               { type: 'employees',  label: 'Employee Directory',  desc: 'All active employee profiles, departments, designations, and salary structures.', hex: '#6777ef', bg: 'rgba(103,119,239,0.08)', btnGradient: 'linear-gradient(135deg, #6777ef 0%, #3f51b5 100%)' },
               { type: 'attendance', label: 'Attendance Records',  desc: 'Clock-in/out stamps, calculated hours, WFH/office codes for the current month.', hex: '#2ebd7f', bg: 'rgba(46,189,127,0.10)',  btnGradient: 'linear-gradient(135deg, #2ebd7f 0%, #1a9e65 100%)' },
               { type: 'payroll',    label: 'Payroll Summary',     desc: 'Gross salary data, statutory deductions, net payments, and payment timestamps.',   hex: '#ffb119', bg: 'rgba(255,177,25,0.10)',  btnGradient: 'linear-gradient(135deg, #ffb119 0%, #e09000 100%)' },
               { type: 'leaves',     label: 'Leave Requests',      desc: 'Annual leaves, medical leaves details along with date intervals and approval records.',    hex: '#00bcd4', bg: 'rgba(0,188,212,0.10)',   btnGradient: 'linear-gradient(135deg, #00bcd4 0%, #0097a7 100%)' },
             ].map((report) => (
-              <div key={report.type} className="card" style={{ border: `1px solid ${report.hex}25`, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div key={report.type} className="card" style={{ border: `1px solid ${report.hex}25`, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.5rem' }}>
                 <div>
-                  <div style={{
-                    width: '44px', height: '44px', borderRadius: '12px',
-                    background: report.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginBottom: '1rem',
-                  }}>
-                    <FileDown size={20} color={report.hex} />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <div style={{
+                      width: '44px', height: '44px', borderRadius: '12px',
+                      background: report.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <FileDown size={20} color={report.hex} />
+                    </div>
+                    <span style={{
+                      fontSize: '0.72rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '20px',
+                      background: report.bg, color: report.hex, border: `1px solid ${report.hex}30`
+                    }}>
+                      Live Snapshot
+                    </span>
                   </div>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.4rem' }}>{report.label}</h3>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>{report.label}</h3>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>{report.desc}</p>
                 </div>
-                <button
-                  onClick={() => handleExport(report.type)}
-                  disabled={exporting === report.type}
-                  style={{
-                    width: '100%',
-                    padding: '0.7rem 1rem',
-                    background: report.btnGradient,
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    border: 'none',
-                    borderRadius: '10px',
-                    cursor: exporting === report.type ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    opacity: exporting === report.type ? 0.7 : 1,
-                    boxShadow: `0 4px 12px ${report.hex}30`,
-                  }}
-                >
-                  <FileDown size={15} />
-                  {exporting === report.type ? 'Generating snapshot...' : 'Generate JSON Report'}
-                </button>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginTop: '0.5rem' }}>
+                  {/* Primary CSV (Excel) Export Button */}
+                  <button
+                    onClick={() => handleExport(report.type, 'csv')}
+                    disabled={!!exporting}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 1rem',
+                      background: report.btnGradient,
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: exporting ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      opacity: exporting === `${report.type}-csv` ? 0.7 : 1,
+                      boxShadow: `0 3px 10px ${report.hex}25`,
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <FileSpreadsheet size={15} />
+                    {exporting === `${report.type}-csv` ? 'Generating CSV...' : 'Generate CSV (Excel) Report'}
+                  </button>
+
+                  {/* Secondary JSON Export Button */}
+                  <button
+                    onClick={() => handleExport(report.type, 'json')}
+                    disabled={!!exporting}
+                    style={{
+                      width: '100%',
+                      padding: '0.55rem 1rem',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
+                      border: `1.5px solid ${report.hex}40`,
+                      borderRadius: '8px',
+                      cursor: exporting ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      opacity: exporting === `${report.type}-json` ? 0.7 : 1,
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = report.hex; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = `${report.hex}40`; }}
+                  >
+                    <FileDown size={14} style={{ color: report.hex }} />
+                    {exporting === `${report.type}-json` ? 'Generating JSON...' : 'Generate JSON Report'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

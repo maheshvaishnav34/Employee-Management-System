@@ -6,6 +6,10 @@ const Payroll = require('../models/Payroll');
 const AuditLog = require('../models/AuditLog');
 const Task = require('../models/Task');
 
+// High-performance server-side in-memory cache
+const dashboardCache = new Map();
+const CACHE_TTL_MS = 15000; // 15s cache TTL
+
 // Helper: start of today
 const todayStart = () => {
   const d = new Date();
@@ -27,6 +31,20 @@ const monthStart = () => {
 const getDashboardStats = async (req, res, next) => {
   try {
     const role = req.user.role;
+    const cacheKey = `${role}_${req.user.id || req.user._id || ''}`;
+    
+    // Check if valid cache exists and no bypass requested
+    if (!req.query.nocache) {
+      const cached = dashboardCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+        return res.json(cached.data);
+      }
+    }
+
+    const sendResponse = (payload) => {
+      dashboardCache.set(cacheKey, { timestamp: Date.now(), data: payload });
+      return res.status(200).json(payload);
+    };
 
     if (role === 'admin' || role === 'hr') {
       // ── 1. Employee Counts ───────────────────────────────────────────────
@@ -191,7 +209,7 @@ const getDashboardStats = async (req, res, next) => {
         .sort({ createdAt: -1 })
         .limit(8);
 
-      return res.status(200).json({
+      return sendResponse({
         success: true,
         stats: {
           cards: {
@@ -322,7 +340,7 @@ const getDashboardStats = async (req, res, next) => {
         .sort((a, b) => b.attendanceRate - a.attendanceRate)
         .slice(0, 5);
 
-      return res.status(200).json({
+      return sendResponse({
         success: true,
         stats: {
           cards: {
@@ -429,7 +447,7 @@ const getDashboardStats = async (req, res, next) => {
         return { ...emp, yearsCompleted: years };
       }).slice(0, 5);
 
-      return res.status(200).json({
+      return sendResponse({
         success: true,
         stats: {
           cards: {

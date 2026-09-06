@@ -5,7 +5,7 @@ import { BarChart3, Plus, Smile, MessageSquare, Check, X, ShieldAlert, ChevronDo
 const AdminEngagementAnalytics = () => {
   const [moodData, setMoodData] = useState(null);
   const [polls, setPolls] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   
   // New poll form fields
@@ -15,13 +15,11 @@ const AdminEngagementAnalytics = () => {
   const [submittingPoll, setSubmittingPoll] = useState(false);
   const [formError, setFormError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-
-  // Tab state: 'mood' or 'polls'
   const [activeTab, setActiveTab] = useState('mood');
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
     try {
-      setLoading(true);
+      if (force) setLoading(true);
       const moodRes = await api.get('/engagement/mood/analytics');
       if (moodRes.success) {
         setMoodData(moodRes.analytics);
@@ -112,7 +110,7 @@ const AdminEngagementAnalytics = () => {
     }
   };
 
-  if (loading) {
+  if (loading && !moodData && polls.length === 0) {
     return (
       <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '260px' }}>
         <Loader2 className="spinner" size={24} style={{ color: 'var(--primary-accent)' }} />

@@ -534,6 +534,9 @@ const ManagerApprovalView = ({ showToast }) => {
 };
 
 // ─────────────── MAIN LEAVES PAGE ───────────────
+let cachedLeavesList = null;
+let cachedLeaveBalances = null;
+
 const Leaves = () => {
   const { user } = useAuth();
 
@@ -544,9 +547,30 @@ const Leaves = () => {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  const [leaves, setLeaves] = useState([]);
-  const [balances, setBalances] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [leaves, setLeaves] = useState(() => {
+    if (cachedLeavesList) return cachedLeavesList;
+    try {
+      const s = sessionStorage.getItem(`ems_cached_leaves_${user?.role}`);
+      return s ? JSON.parse(s) : [];
+    } catch (e) { return []; }
+  });
+  
+  const [balances, setBalances] = useState(() => {
+    if (cachedLeaveBalances) return cachedLeaveBalances;
+    try {
+      const s = sessionStorage.getItem(`ems_cached_balances_${user?.role}`);
+      return s ? JSON.parse(s) : null;
+    } catch (e) { return null; }
+  });
+
+  const [loading, setLoading] = useState(() => {
+    if (['admin', 'hr', 'manager'].includes(user?.role)) return false;
+    if (cachedLeavesList) return false;
+    try {
+      return !sessionStorage.getItem(`ems_cached_leaves_${user?.role}`);
+    } catch (e) { return true; }
+  });
+
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({ leaveType: 'Casual', startDate: '', endDate: '', reason: '' });
   const [formError, setFormError] = useState('');
@@ -562,13 +586,18 @@ const Leaves = () => {
 
   const isAdminOrHR = ['admin', 'hr', 'manager'].includes(user?.role);
 
-  const fetchLeaves = async () => {
+  const fetchLeaves = async (forceSpinner = false) => {
     try {
-      setLoading(true); setError('');
+      if (forceSpinner || !leaves.length) setLoading(true);
+      setError('');
       const data = await api.get('/leaves/my-leaves');
-      if (data.success) setLeaves(data.leaves);
+      if (data.success) {
+        setLeaves(data.leaves);
+        cachedLeavesList = data.leaves;
+        try { sessionStorage.setItem(`ems_cached_leaves_${user?.role}`, JSON.stringify(data.leaves)); } catch (e) {}
+      }
     } catch (err) {
-      setError(err.message || 'Failed to load leave records');
+      if (!leaves.length) setError(err.message || 'Failed to load leave records');
     } finally {
       setLoading(false);
     }
@@ -577,7 +606,11 @@ const Leaves = () => {
   const fetchLeaveBalances = async () => {
     try {
       const data = await api.get('/leaves/balances');
-      if (data.success) setBalances(data.balances);
+      if (data.success) {
+        setBalances(data.balances);
+        cachedLeaveBalances = data.balances;
+        try { sessionStorage.setItem(`ems_cached_balances_${user?.role}`, JSON.stringify(data.balances)); } catch (e) {}
+      }
     } catch {}
   };
 

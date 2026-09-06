@@ -11,7 +11,7 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 router.use(protect);
 
 router.get('/', getAnnouncements);
-router.post('/', authorize('admin', 'hr'), createAnnouncement);
-router.delete('/:id', authorize('admin', 'hr'), deleteAnnouncement);
+router.post('/', authorize('admin', 'hr', 'manager'), createAnnouncement);
+router.delete('/:id', authorize('admin', 'hr', 'manager'), deleteAnnouncement);
 
 module.exports = router;

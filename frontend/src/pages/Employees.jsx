@@ -558,6 +558,10 @@ const TransferRequestsTab = ({ showToast }) => {
 // ==========================================
 // MAIN EMPLOYEES COMPONENT
 // ==========================================
+let cachedEmployeesList = null;
+let cachedDepartmentsList = null;
+let cachedDesignationsList = null;
+
 const Employees = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('roster');
@@ -569,11 +573,38 @@ const Employees = () => {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  // Roster-specific States
-  const [employees, setEmployees] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [designations, setDesignations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Roster-specific States with Instant Initial Cache
+  const [employees, setEmployees] = useState(() => {
+    if (cachedEmployeesList) return cachedEmployeesList;
+    try {
+      const s = sessionStorage.getItem('ems_cached_employees');
+      return s ? JSON.parse(s) : [];
+    } catch (e) { return []; }
+  });
+
+  const [departments, setDepartments] = useState(() => {
+    if (cachedDepartmentsList) return cachedDepartmentsList;
+    try {
+      const s = sessionStorage.getItem('ems_cached_depts');
+      return s ? JSON.parse(s) : [];
+    } catch (e) { return []; }
+  });
+
+  const [designations, setDesignations] = useState(() => {
+    if (cachedDesignationsList) return cachedDesignationsList;
+    try {
+      const s = sessionStorage.getItem('ems_cached_desigs');
+      return s ? JSON.parse(s) : [];
+    } catch (e) { return []; }
+  });
+
+  const [loading, setLoading] = useState(() => {
+    if (cachedEmployeesList) return false;
+    try {
+      return !sessionStorage.getItem('ems_cached_employees');
+    } catch (e) { return true; }
+  });
+
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -601,9 +632,9 @@ const Employees = () => {
 
   const showSalary = !['manager', 'employee'].includes(user?.role);
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (forceSpinner = false) => {
     try {
-      setLoading(true);
+      if (forceSpinner || !employees.length) setLoading(true);
       setError('');
       const params = [];
       if (search) params.push(`search=${encodeURIComponent(search)}`);
@@ -613,9 +644,15 @@ const Employees = () => {
       const data = await api.get(`/employees${queryStr}`);
       if (data.success) {
         setEmployees(data.employees);
+        if (!search && !deptFilter) {
+          cachedEmployeesList = data.employees;
+          try { sessionStorage.setItem('ems_cached_employees', JSON.stringify(data.employees)); } catch (e) {}
+        }
       }
     } catch (err) {
-      setError(err.message || 'Failed to load employee records');
+      if (!employees.length) {
+        setError(err.message || 'Failed to load employee records');
+      }
     } finally {
       setLoading(false);
     }
@@ -626,6 +663,8 @@ const Employees = () => {
       const data = await api.get('/departments');
       if (data.success) {
         setDepartments(data.departments);
+        cachedDepartmentsList = data.departments;
+        try { sessionStorage.setItem('ems_cached_depts', JSON.stringify(data.departments)); } catch (e) {}
       }
     } catch (err) {
       console.error('Failed to load departments', err.message);
@@ -637,6 +676,8 @@ const Employees = () => {
       const data = await api.get('/designations');
       if (data.success) {
         setDesignations(data.designations);
+        cachedDesignationsList = data.designations;
+        try { sessionStorage.setItem('ems_cached_desigs', JSON.stringify(data.designations)); } catch (e) {}
       }
     } catch (err) {
       console.error('Failed to load designations', err.message);
@@ -831,11 +872,11 @@ const Employees = () => {
       {/* Roster Tab */}
       {activeTab === 'roster' && (
         <>
-          <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem 1.5rem' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', gap: '1rem', flex: 1, minWidth: '280px' }}>
+          <div className="card employees-filter-card" style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem' }}>
+            <div className="employees-filter-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="employees-search-group" style={{ display: 'flex', gap: '0.75rem', flex: 1, minWidth: '260px', flexWrap: 'wrap' }}>
                 {/* Search Input */}
-                <div style={{ position: 'relative', flex: 1 }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
                   <input
                     type="text"
                     className="form-control"
@@ -858,10 +899,10 @@ const Employees = () => {
 
                 {/* Department Filter */}
                 <select
-                  className="form-control"
+                  className="form-control employees-dept-filter"
                   value={deptFilter}
                   onChange={(e) => setDeptFilter(e.target.value)}
-                  style={{ width: '200px' }}
+                  style={{ width: '200px', minWidth: '150px' }}
                 >
                   <option value="">All Departments</option>
                   {departments.map((d) => (
@@ -873,7 +914,7 @@ const Employees = () => {
               </div>
 
               {['admin', 'hr'].includes(user?.role) && (
-                <button onClick={handleOpenAddForm} className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #2ebd7f 0%, #10b981 100%)', borderColor: '#2ebd7f' }}>
+                <button onClick={handleOpenAddForm} className="btn btn-primary add-employee-btn" style={{ background: 'linear-gradient(135deg, #2ebd7f 0%, #10b981 100%)', borderColor: '#2ebd7f', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <Plus size={18} /> Add Employee
                 </button>
               )}
@@ -883,7 +924,7 @@ const Employees = () => {
           {error && <div className="alert alert-danger">{error}</div>}
 
           {/* Employees Table List */}
-          <div className="table-container">
+          <div className="table-container table-responsive-wrapper">
             <div className="table-header-row">
               <span className="table-title">Employee Roster ({employees.length})</span>
             </div>

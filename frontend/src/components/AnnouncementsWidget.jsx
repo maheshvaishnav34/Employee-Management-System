@@ -14,7 +14,7 @@ const AnnouncementsWidget = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const isAdminOrHR = user?.role === 'admin' || user?.role === 'hr';
+  const isAdminOrHR = user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager';
 
   const fetchAnnouncements = async () => {
     try {
