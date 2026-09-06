@@ -618,7 +618,7 @@ const Shifts = () => {
                 backgroundColor: isToday ? 'rgba(37, 99, 235, 0.015)' : 'var(--bg-card)'
               }}>
                 {/* Date Header */}
-                <div style={{
+                <div className="shifts-date-header" style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -678,9 +678,9 @@ const Shifts = () => {
                 </div>
 
                 {/* Shift Grid */}
-                <div style={{
+                <div className="shifts-day-grid" style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                   gap: '1.15rem'
                 }}>
                   {dayShifts.map(shift => {

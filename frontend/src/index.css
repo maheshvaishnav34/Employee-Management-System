@@ -87,7 +87,7 @@
 }
 
 /* Global Reset & Base Styles */
-* {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -95,11 +95,21 @@
   transition: background-color var(--transition-fast), border-color var(--transition-fast);
 }
 
-body {
+html, body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   overflow-x: hidden;
-  height: 100vh;
+  max-width: 100vw;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  -webkit-text-size-adjust: 100%;
+}
+
+#root {
+  max-width: 100vw;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -111,8 +121,12 @@ h1, h2, h3, h4, h5, h6 {
 /* App Layout Grid */
 .app-container {
   display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
+  max-width: 100vw;
   overflow: hidden;
 }
 
@@ -120,9 +134,13 @@ h1, h2, h3, h4, h5, h6 {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
+  height: 100dvh;
   overflow-y: auto;
   overflow-x: hidden;
+  max-width: 100vw;
 }
 
 .page-container {
@@ -2724,322 +2742,34 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 
-.table-responsive-wrapper {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+/* Responsive Table Wrappers */
+.table-responsive-wrapper,
+.table-container,
+.data-table-wrapper,
+.table-responsive,
+.table-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
   border-radius: 12px;
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   1. TABLET & MOBILE BREAKPOINT (<= 1024px)
-   ────────────────────────────────────────────────────────────────────────── */
-@media (max-width: 1024px) {
-  /* Layout transformation: Sidebar becomes off-canvas drawer */
-  .app-container {
-    position: relative;
-  }
-
-  .desktop-only {
-    display: none !important;
-  }
-
-  .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 280px !important;
-    height: 100vh;
-    z-index: 1000;
-    transform: translateX(-100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
-    box-shadow: none;
-  }
-
-  .sidebar.mobile-open {
-    transform: translateX(0);
-    box-shadow: 10px 0 35px rgba(0, 0, 0, 0.45);
-  }
-
-  .sidebar-mobile-close-btn {
-    display: flex !important;
-  }
-
-  .main-content {
-    width: 100vw !important;
-    margin-left: 0 !important;
-  }
-
-  .navbar {
-    padding: 0 1.25rem;
-  }
-
-  .navbar-page-title {
-    font-size: 1.15rem;
-    max-width: 220px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .page-container {
-    padding: 1.25rem 1.25rem;
-  }
-
-  .dashboard-grid-3 {
-    grid-template-columns: 1fr 1fr !important;
-  }
-
-  .dashboard-grid-split {
-    grid-template-columns: 1fr !important;
-  }
+/* Sidebar Backdrop for Mobile & Tablet */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1040;
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   2. MOBILE BREAKPOINT (<= 768px)
-   ────────────────────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  body {
-    font-size: 14px;
-  }
-
-  .navbar {
-    height: 60px;
-    padding: 0 1rem;
-  }
-
-  .navbar-page-title {
-    font-size: 1rem;
-    max-width: 160px;
-  }
-
-  .sidebar-toggle-btn {
-    padding: 6px;
-    width: 36px;
-    height: 36px;
-  }
-
-  .page-container {
-    padding: 1rem 0.85rem;
-  }
-
-  .dashboard-grid-3,
-  .dashboard-grid-2,
-  .dashboard-grid-split,
-  .attendance-layout-grid,
-  .profile-main-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .dashboard-welcome-banner {
-    padding: 1.15rem 1rem !important;
-  }
-
-  /* Page headers and Action Toolbars */
-  .page-header,
-  .dashboard-header,
-  .toolbar-container {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 0.85rem !important;
-  }
-
-  .page-header h1,
-  .page-header h2 {
-    font-size: 1.35rem;
-  }
-
-  .page-header .action-buttons,
-  .toolbar-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    width: 100%;
-  }
-
-  .page-header .action-buttons > *,
-  .toolbar-actions > * {
-    flex: 1 1 auto;
-    justify-content: center;
-  }
-
-  /* Filter bar & Search Inputs */
-  .search-filter-bar,
-  .filter-bar,
-  .employees-filter-row {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 0.65rem !important;
-  }
-
-  .employees-search-group {
-    flex-direction: column !important;
-    width: 100% !important;
-  }
-
-  .employees-dept-filter {
-    width: 100% !important;
-  }
-
-  .add-employee-btn {
-    width: 100% !important;
-    justify-content: center !important;
-  }
-
-  /* Team Chat Mobile Toggle */
-  .chat-container-card {
-    height: calc(100vh - 180px) !important;
-  }
-
-  .chat-container-card.show-contacts-view .chat-contacts-pane {
-    width: 100% !important;
-    display: flex !important;
-  }
-
-  .chat-container-card.show-contacts-view .chat-messages-pane {
-    display: none !important;
-  }
-
-  .chat-container-card.show-chat-view .chat-contacts-pane {
-    display: none !important;
-  }
-
-  .chat-container-card.show-chat-view .chat-messages-pane {
-    width: 100% !important;
-    display: flex !important;
-  }
-
-  .search-box,
-  .search-input-wrapper {
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  /* Metric cards & Stat Grids */
-  .stats-grid,
-  .stat-grid,
-  .metrics-container {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
-    gap: 0.75rem !important;
-  }
-
-  .stat-card {
-    padding: 1rem 0.85rem !important;
-  }
-
-  .stat-card .stat-value {
-    font-size: 1.35rem !important;
-  }
-
-  .stat-card .stat-label {
-    font-size: 0.75rem !important;
-  }
-
-  /* Data Tables Touch Scroll */
-  table {
-    min-width: 600px;
-  }
-
-  .card,
-  .table-card,
-  .chart-card {
-    border-radius: 12px !important;
-    padding: 1rem 0.85rem !important;
-    overflow-x: hidden;
-  }
-
-  /* Notification Dropdown full width */
-  .navbar-notif-dropdown {
-    position: fixed !important;
-    top: 65px !important;
-    left: 8px !important;
-    right: 8px !important;
-    width: calc(100vw - 16px) !important;
-    max-height: 75vh !important;
-    border-radius: 16px !important;
-  }
-
-  /* Modals on Mobile */
-  .modal-overlay,
-  .dialog-overlay {
-    padding: 0.5rem;
-    align-items: flex-end;
-  }
-
-  .modal-content,
-  .modal-container,
-  .modal-card {
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: 90vh !important;
-    border-radius: 18px 18px 8px 8px !important;
-    padding: 1.25rem 1rem !important;
-    overflow-y: auto !important;
-  }
-
-  /* Forms & Form Grids */
-  .form-grid,
-  .form-row {
-    grid-template-columns: 1fr !important;
-    gap: 0.75rem !important;
-  }
-
-  /* Profile and Split View Panels */
-  .profile-layout,
-  .chat-container,
-  .split-pane {
-    flex-direction: column !important;
-    height: auto !important;
-  }
-
-  .chat-sidebar {
-    width: 100% !important;
-    max-height: 250px;
-  }
-
-  .chat-main {
-    width: 100% !important;
-    height: 400px;
-  }
-}
-
-/* ──────────────────────────────────────────────────────────────────────────
-   3. SMALL MOBILE BREAKPOINT (<= 480px)
-   ────────────────────────────────────────────────────────────────────────── */
-@media (max-width: 480px) {
-  .page-container {
-    padding: 0.75rem 0.5rem;
-  }
-
-  .navbar {
-    padding: 0 0.75rem;
-  }
-
-  .navbar-right {
-    gap: 0.4rem !important;
-  }
-
-  .stats-grid,
-  .stat-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .btn,
-  button.primary-btn,
-  button.secondary-btn {
-    padding: 0.6rem 0.85rem;
-    font-size: 0.82rem;
-  }
-
-  .badge {
-    font-size: 0.65rem;
-    padding: 0.15rem 0.4rem;
-  }
-}
-
-/* ──────────────────────────────────────────────────────────────────────────
-   Global Modal & Form Controls System
+   Base Modal & Form Controls System
    ────────────────────────────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed;
@@ -3140,6 +2870,408 @@ textarea.form-control {
 .form-control:focus {
   border-color: var(--primary-accent) !important;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   1. TABLET & IPAD BREAKPOINT (<= 1024px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .app-container {
+    position: relative;
+    max-width: 100vw;
+  }
+
+  .sidebar-backdrop.active {
+    display: block !important;
+    opacity: 1 !important;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px !important;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 1050;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+    box-shadow: none;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 10px 0 35px rgba(0, 0, 0, 0.45);
+  }
+
+  .sidebar-mobile-close-btn {
+    display: flex !important;
+  }
+
+  .main-content {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin-left: 0 !important;
+  }
+
+  .navbar {
+    padding: 0 1.25rem;
+  }
+
+  .navbar-page-title {
+    font-size: 1.1rem;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .page-container {
+    padding: 1.25rem 1rem;
+    max-width: 100%;
+  }
+
+  .profile-main-grid,
+  .two-column-layout,
+  .attendance-layout,
+  .leaves-layout,
+  .rewards-layout,
+  .profile-layout,
+  .payroll-dashboard,
+  .dashboard-grid-split {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-grid-3 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   2. MOBILE BREAKPOINT (<= 768px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  html, body, #root, .app-container, .main-content {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
+  body {
+    font-size: 14px;
+  }
+
+  .navbar {
+    height: 58px;
+    padding: 0 0.85rem;
+  }
+
+  .navbar-left {
+    gap: 0.5rem;
+  }
+
+  .navbar-page-title {
+    font-size: 0.98rem;
+    max-width: 160px;
+  }
+
+  .navbar-right {
+    gap: 0.5rem !important;
+  }
+
+  .navbar-connection-text {
+    display: none !important;
+  }
+
+  .navbar-user-name {
+    display: none !important;
+  }
+
+  .navbar-profile-btn {
+    padding: 0.25rem 0.35rem !important;
+  }
+
+  .navbar-notif-dropdown {
+    position: fixed !important;
+    top: 62px !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: 80vh !important;
+    max-height: 80dvh !important;
+    border-radius: 16px !important;
+  }
+
+  .page-container {
+    padding: 1rem 0.75rem;
+  }
+
+  .dashboard-grid-3,
+  .dashboard-grid-2,
+  .dashboard-grid-split,
+  .attendance-layout-grid,
+  .profile-main-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-welcome-banner {
+    padding: 1rem 0.85rem !important;
+  }
+
+  /* Page headers and Action Toolbars */
+  .page-header,
+  .dashboard-header,
+  .toolbar-container {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+
+  .page-header h1,
+  .page-header h2 {
+    font-size: 1.3rem;
+  }
+
+  .page-header .action-buttons,
+  .toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .page-header .action-buttons > *,
+  .toolbar-actions > * {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  /* Filter bar & Search Inputs */
+  .search-filter-bar,
+  .filter-bar,
+  .employees-filter-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+  }
+
+  .employees-search-group {
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  .employees-dept-filter {
+    width: 100% !important;
+  }
+
+  .add-employee-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Team Chat Mobile Toggle */
+  .chat-container-card {
+    height: calc(100vh - 170px) !important;
+    height: calc(100dvh - 170px) !important;
+  }
+
+  .chat-container-card.show-contacts-view .chat-contacts-pane {
+    width: 100% !important;
+    display: flex !important;
+  }
+
+  .chat-container-card.show-contacts-view .chat-messages-pane {
+    display: none !important;
+  }
+
+  .chat-container-card.show-chat-view .chat-contacts-pane {
+    display: none !important;
+  }
+
+  .chat-container-card.show-chat-view .chat-messages-pane {
+    width: 100% !important;
+    display: flex !important;
+  }
+
+  .search-box,
+  .search-input-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Grids & Stat Cards */
+  .stats-grid,
+  .stat-grid,
+  .metrics-container,
+  .grid-auto-fit-4,
+  .grid-auto-fit-3,
+  .grid-auto-fit-2 {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+
+  .stat-card {
+    padding: 0.9rem 0.75rem !important;
+  }
+
+  .stat-card .stat-value {
+    font-size: 1.3rem !important;
+  }
+
+  .stat-card .stat-label {
+    font-size: 0.75rem !important;
+  }
+
+  /* Shift Planner */
+  .shifts-day-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  .shifts-date-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Modals on Mobile */
+  .modal-overlay,
+  .dialog-overlay {
+    padding: 0.5rem !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .modal-content,
+  .modal-container,
+  .modal-card {
+    width: 95vw !important;
+    max-width: calc(100vw - 1rem) !important;
+    max-height: 90vh !important;
+    max-height: 90dvh !important;
+    border-radius: 16px !important;
+    overflow-y: auto !important;
+    margin: auto !important;
+  }
+
+  .modal-header {
+    padding: 1rem 1.15rem !important;
+  }
+
+  .modal-body {
+    padding: 1rem 1.15rem !important;
+    max-height: calc(90vh - 130px) !important;
+    max-height: calc(90dvh - 130px) !important;
+    overflow-y: auto !important;
+  }
+
+  .modal-footer {
+    padding: 0.85rem 1.15rem !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+
+  .modal-footer > * {
+    flex: 1 1 auto !important;
+  }
+
+  /* Forms & Form Grids */
+  .form-grid,
+  .form-row {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  .auth-card {
+    padding: 1.5rem 1.15rem !important;
+    max-width: calc(100vw - 1.5rem) !important;
+    border-radius: 16px !important;
+  }
+
+  .auth-page-container {
+    padding: 1.5rem 0.75rem !important;
+  }
+
+  .auth-header-title {
+    font-size: 1.35rem !important;
+  }
+
+  table {
+    min-width: 540px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   3. SMALL MOBILE BREAKPOINT (<= 480px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .page-container {
+    padding: 0.75rem 0.5rem !important;
+  }
+
+  .navbar {
+    padding: 0 0.6rem !important;
+  }
+
+  .navbar-right {
+    gap: 0.35rem !important;
+  }
+
+  .navbar-role-badge {
+    display: none !important;
+  }
+
+  .navbar-page-title {
+    font-size: 0.9rem !important;
+    max-width: 120px !important;
+  }
+
+  .stats-grid,
+  .stat-grid,
+  .grid-auto-fit-4,
+  .grid-auto-fit-3,
+  .grid-auto-fit-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .week-grid {
+    gap: 0.2rem !important;
+  }
+
+  .week-grid > div {
+    font-size: 0.72rem !important;
+  }
+
+  .btn,
+  button.primary-btn,
+  button.secondary-btn {
+    padding: 0.55rem 0.8rem !important;
+    font-size: 0.82rem !important;
+  }
+
+  .badge {
+    font-size: 0.65rem !important;
+    padding: 0.15rem 0.4rem !important;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   4. ULTRA-SMALL PHONES (<= 360px)
+   ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 360px) {
+  .navbar-page-title {
+    font-size: 0.82rem !important;
+    max-width: 100px !important;
+  }
+
+  .auth-card {
+    padding: 1.25rem 0.85rem !important;
+  }
 }
 
 

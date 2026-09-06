@@ -127,13 +127,13 @@ const ConnectionBadge = ({ status }) => {
 
   const Icon = cfg.icon;
   return (
-    <span style={{
+    <span className="navbar-connection-badge" style={{
       display: 'flex', alignItems: 'center', gap: 4,
       fontSize: '0.65rem', color: cfg.color, fontWeight: 600,
     }}>
       {status === 'live' && <PulsingDot color={cfg.color} size={8} />}
       {(status !== 'live') && <Icon size={10} />}
-      {cfg.label}
+      <span className="navbar-connection-text">{cfg.label}</span>
     </span>
   );
 };
@@ -196,7 +196,7 @@ const Navbar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
   };
 
   const handleToggleSidebar = () => {
-    if (window.innerWidth <= 768) {
+    if (window.innerWidth <= 1024) {
       if (setMobileOpen) setMobileOpen(!mobileOpen);
     } else {
       if (setCollapsed) setCollapsed(!collapsed);
@@ -361,7 +361,7 @@ const Navbar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
               {/* ── Dropdown Panel ── */}
               {showDropdown && (
                 <div
-                  className="dropdown-in notif-scroll"
+                  className="dropdown-in notif-scroll navbar-notif-dropdown"
                   style={{
                     position: 'absolute', top: 'calc(100% + 12px)', right: 0,
                     width: 360, maxHeight: 540, overflowY: 'auto',
@@ -598,6 +598,7 @@ const Navbar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
           {user && (
             <button
               onClick={() => navigate('/profile')}
+              className="navbar-profile-btn"
               style={{
                 display: 'flex', alignItems: 'center', gap: '0.55rem',
                 background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
@@ -621,14 +622,14 @@ const Navbar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
                   (user?.username || 'U')[0].toUpperCase()
                 )}
               </div>
-              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span className="navbar-user-name" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user?.username || 'Profile'}
               </span>
             </button>
           )}
 
           {/* Role badge */}
-          <span style={{
+          <span className="navbar-role-badge" style={{
             fontSize: '0.72rem',
             fontWeight: 700,
             padding: '0.35rem 0.8rem',

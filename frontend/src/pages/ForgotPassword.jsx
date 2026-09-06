@@ -41,7 +41,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div style={{
+    <div className="auth-page-container" style={{
       minHeight: '100vh',
       width: '100vw',
       display: 'flex',
@@ -133,7 +133,7 @@ const ForgotPassword = () => {
           />
         </div>
 
-        <h1 style={{
+        <h1 className="auth-header-title" style={{
           fontSize: '1.75rem',
           fontWeight: 800,
           color: '#0f172a',
@@ -153,7 +153,7 @@ const ForgotPassword = () => {
       </div>
 
       {/* ── Main Clean Card ── */}
-      <div style={{
+      <div className="auth-card" style={{
         position: 'relative',
         zIndex: 2,
         width: '100%',
