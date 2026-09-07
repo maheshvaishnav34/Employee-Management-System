@@ -127,25 +127,27 @@ const Dashboard = () => {
         <>
           {/* Admin Welcome Banner & Refresh */}
           <div className="card dashboard-welcome-banner" style={{
-            background: 'linear-gradient(135deg, rgba(103,119,239,0.06) 0%, rgba(63,81,181,0.03) 100%)',
-            border: '1px solid rgba(103,119,239,0.15)',
-            padding: '1.5rem',
-            borderRadius: '16px',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            padding: '1.25rem 1.5rem',
+            borderRadius: '14px',
             marginBottom: '1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '1rem',
+            boxShadow: 'var(--shadow-sm)',
             ...fadeInUpStyle(25)
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
               <div style={{
-                width: '52px', height: '52px', borderRadius: '14px',
-                background: 'rgba(103,119,239,0.12)', color: 'var(--primary-accent)',
+                width: '46px', height: '46px', borderRadius: '12px',
+                background: 'rgba(37, 99, 235, 0.1)', color: 'var(--primary-accent)',
+                border: '1px solid rgba(37, 99, 235, 0.2)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
               }}>
-                <Shield size={26} />
+                <Shield size={24} />
               </div>
               <div>
                 <h1 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0 }}>Workplace Analytics Center</h1>
@@ -284,25 +286,27 @@ const Dashboard = () => {
         <>
           {/* Manager Welcome Banner & Refresh */}
           <div className="card dashboard-welcome-banner" style={{
-            background: 'linear-gradient(135deg, rgba(103,119,239,0.06) 0%, rgba(63,81,181,0.03) 100%)',
-            border: '1px solid rgba(103,119,239,0.15)',
-            padding: '1.5rem',
-            borderRadius: '16px',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            padding: '1.25rem 1.5rem',
+            borderRadius: '14px',
             marginBottom: '1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '1rem',
+            boxShadow: 'var(--shadow-sm)',
             ...fadeInUpStyle(25)
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
               <div style={{
-                width: '52px', height: '52px', borderRadius: '14px',
-                background: 'rgba(103,119,239,0.12)', color: 'var(--primary-accent)',
+                width: '46px', height: '46px', borderRadius: '12px',
+                background: 'rgba(37, 99, 235, 0.1)', color: 'var(--primary-accent)',
+                border: '1px solid rgba(37, 99, 235, 0.2)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
               }}>
-                <Shield size={26} />
+                <Shield size={24} />
               </div>
               <div>
                 <h1 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0 }}>Team Management Hub</h1>
@@ -415,25 +419,27 @@ const Dashboard = () => {
         <>
           {/* Employee Welcome Banner */}
           <div className="card dashboard-welcome-banner" style={{
-            background: 'linear-gradient(135deg, rgba(46,189,127,0.06) 0%, rgba(103,119,239,0.03) 100%)',
-            border: '1px solid rgba(46,189,127,0.15)',
-            padding: '1.5rem',
-            borderRadius: '16px',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            padding: '1.25rem 1.5rem',
+            borderRadius: '14px',
             marginBottom: '1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '1rem',
+            boxShadow: 'var(--shadow-sm)',
             ...fadeInUpStyle(25)
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
               <div style={{
-                width: '52px', height: '52px', borderRadius: '14px',
-                background: 'rgba(46,189,127,0.12)', color: 'var(--success)',
+                width: '46px', height: '46px', borderRadius: '12px',
+                background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
               }}>
-                <Sparkles size={26} />
+                <Sparkles size={24} />
               </div>
               <div>
                 <h1 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0 }}>Welcome back, {user.username}!</h1>

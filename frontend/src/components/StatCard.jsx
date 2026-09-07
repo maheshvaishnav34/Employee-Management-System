@@ -38,51 +38,63 @@ const StatCard = ({ title, value, icon: Icon, color = 'primary', subText }) => {
   const style = colorMap[color] || colorMap.primary;
 
   return (
-    <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem' }}>
-      
+    <div
+      className="card"
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '1.25rem 1.4rem',
+        borderRadius: '14px',
+        border: '1px solid var(--border-color)',
+        background: 'var(--bg-card)',
+        boxShadow: 'var(--shadow-sm)'
+      }}
+    >
       {/* Metrics Section */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-        <span className="stat-card-title" style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           {title}
         </span>
-        <h3 className="stat-card-value" style={{ fontSize: '1.75rem', margin: 0, fontWeight: 800 }}>
+        <h3 style={{ fontSize: '1.65rem', margin: 0, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.1 }}>
           {value}
         </h3>
         
-        {/* Progress bar matching Kuber dashboard widgets */}
-        <div style={{ width: '85%', height: '5px', backgroundColor: 'var(--border-color)', borderRadius: '9px', overflow: 'hidden', marginTop: '0.25rem' }}>
+        {/* Subtle Accent Indicator */}
+        <div style={{ width: '80%', height: '4px', backgroundColor: 'var(--border-color)', borderRadius: '6px', overflow: 'hidden', marginTop: '0.3rem' }}>
           <div
             style={{
               width: '65%',
               height: '100%',
               background: style.gradient,
-              borderRadius: '9px',
+              borderRadius: '6px',
             }}
           />
         </div>
 
         {subText && (
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+          <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
             {subText}
           </span>
         )}
       </div>
 
-      {/* Floating circular icon badge */}
+      {/* Clean square icon badge */}
       <div
         style={{
-          width: '54px',
-          height: '54px',
-          borderRadius: '50%',
-          background: style.gradient,
-          color: '#ffffff',
+          width: '46px',
+          height: '46px',
+          borderRadius: '12px',
+          background: style.bg,
+          color: style.accent,
+          border: `1px solid ${style.accent}30`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: style.shadow,
+          flexShrink: 0
         }}
       >
-        {Icon && <Icon size={24} />}
+        {Icon && <Icon size={22} />}
       </div>
     </div>
   );
