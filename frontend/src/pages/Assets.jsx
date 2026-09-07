@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -380,8 +381,8 @@ const Assets = () => {
       )}
 
       {/* Register Asset Modal */}
-      {addModalOpen && (
-        <div className="modal-overlay">
+      {addModalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setAddModalOpen(false); }}>
           <div className="modal-content">
             <div className="modal-header">
               <h3 className="modal-title">Register Company Asset</h3>
@@ -410,7 +411,7 @@ const Assets = () => {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Asset Value ($)</label>
+                    <label>Asset Value (₹)</label>
                     <input type="number" className="form-control" placeholder="e.g. 1500"
                       value={assetForm.value} onChange={e => setAssetForm({ ...assetForm, value: e.target.value })} />
                   </div>
@@ -428,12 +429,13 @@ const Assets = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Assign Asset Modal */}
-      {assignModalOpen && (
-        <div className="modal-overlay">
+      {assignModalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setAssignModalOpen(false); setSelectedAsset(null); } }}>
           <div className="modal-content">
             <div className="modal-header">
               <h3 className="modal-title">Assign Asset: {selectedAsset?.name}</h3>
@@ -458,12 +460,13 @@ const Assets = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Request Equipment Modal */}
-      {requestModalOpen && (
-        <div className="modal-overlay">
+      {requestModalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setRequestModalOpen(false); }}>
           <div className="modal-content">
             <div className="modal-header">
               <h3 className="modal-title">Request Equipment</h3>
@@ -498,12 +501,13 @@ const Assets = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Request Action Modal */}
-      {actionModalOpen && (
-        <div className="modal-overlay">
+      {actionModalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setActionModalOpen(false); setSelectedRequest(null); } }}>
           <div className="modal-content">
             <div className="modal-header">
               <h3 className="modal-title">Respond to Asset Request</h3>
@@ -531,7 +535,8 @@ const Assets = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -72,11 +72,14 @@ const getDashboardStats = async (req, res, next) => {
       // ── 4. Payroll Summary ───────────────────────────────────────────────
       const now = new Date();
       const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const payrollAgg = await Payroll.aggregate([
+      let targetPayrollMonth = currentMonthStr;
+      let isCurrentMonth = true;
+
+      let payrollAgg = await Payroll.aggregate([
         { $match: { month: currentMonthStr } },
         {
           $group: {
-            _id: null,
+            _id: '$month',
             totalNet: { $sum: '$netSalary' },
             totalBonus: { $sum: '$bonuses' },
             totalDeductions: { $sum: '$deductions' },
@@ -85,6 +88,29 @@ const getDashboardStats = async (req, res, next) => {
           },
         },
       ]);
+
+      if (!payrollAgg.length || payrollAgg[0].count === 0) {
+        // Fallback to the latest processed payroll month
+        const latestRecord = await Payroll.findOne().sort({ month: -1 });
+        if (latestRecord && latestRecord.month) {
+          targetPayrollMonth = latestRecord.month;
+          isCurrentMonth = false;
+          payrollAgg = await Payroll.aggregate([
+            { $match: { month: targetPayrollMonth } },
+            {
+              $group: {
+                _id: '$month',
+                totalNet: { $sum: '$netSalary' },
+                totalBonus: { $sum: '$bonuses' },
+                totalDeductions: { $sum: '$deductions' },
+                totalGross: { $sum: '$baseSalary' },
+                count: { $sum: 1 },
+              },
+            },
+          ]);
+        }
+      }
+
       const payrollData = payrollAgg[0] || { totalNet: 0, totalBonus: 0, totalDeductions: 0, totalGross: 0, count: 0 };
 
       // ── 5. Top Performers (by attendance rate this month) ────────────────
@@ -231,6 +257,8 @@ const getDashboardStats = async (req, res, next) => {
             bonusTotal: payrollData.totalBonus,
             deductionTotal: payrollData.totalDeductions,
             processedCount: payrollData.count,
+            targetMonth: targetPayrollMonth,
+            isCurrentMonth: isCurrentMonth,
           },
           charts: {
             departmentDistribution,

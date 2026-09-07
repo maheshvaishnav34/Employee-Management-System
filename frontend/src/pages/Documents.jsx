@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -222,8 +223,8 @@ const Documents = () => {
       )}
 
       {/* Publish Policy Modal */}
-      {publishModalOpen && (
-        <div className="modal-overlay">
+      {publishModalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setPublishModalOpen(false); }}>
           <div className="modal-content" style={{ width: '640px', maxWidth: '90%' }}>
             <div className="modal-header">
               <h3 className="modal-title">Publish New Company Policy</h3>
@@ -262,12 +263,13 @@ const Documents = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Read Document Modal */}
-      {readModalOpen && (
-        <div className="modal-overlay">
+      {readModalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setReadModalOpen(false); setSelectedDoc(null); } }}>
           <div className="modal-content" style={{ width: '700px', maxWidth: '95%', maxHeight: '85vh' }}>
             <div className="modal-header" style={{ paddingBottom: '1rem' }}>
               <div>
@@ -295,7 +297,8 @@ const Documents = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

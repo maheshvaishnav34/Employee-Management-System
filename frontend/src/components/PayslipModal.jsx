@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Printer } from 'lucide-react';
 
 const PayslipModal = ({ payroll, onClose }) => {
@@ -43,8 +44,8 @@ const PayslipModal = ({ payroll, onClose }) => {
     return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   };
 
-  return (
-    <div className="modal-overlay">
+  return createPortal(
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-content" style={{ width: '700px' }}>
         <div className="modal-header">
           <h3 className="modal-title">Employee Payslip</h3>
@@ -83,24 +84,24 @@ const PayslipModal = ({ payroll, onClose }) => {
                 </span>
                 <div style={{ marginTop: '0.5rem', lineHeight: '1.5' }}>
                   <strong>{payroll.employee.firstName} {payroll.employee.lastName}</strong><br />
-                  ID: {payroll.employee.employeeId}<br />
-                  Role: {payroll.employee.designation}<br />
-                  Dept: {payroll.employee.department?.name || 'Unassigned'}
+                  <span style={{ color: '#718096', fontSize: '0.85rem' }}>
+                    ID: {payroll.employee.employeeId} | Dept: {payroll.employee.department?.name || 'N/A'}<br />
+                    Designation: {payroll.employee.designation}
+                  </span>
                 </div>
               </div>
-              <div>
+              <div style={{ textAlign: 'right' }}>
                 <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#718096', fontWeight: 600 }}>
                   PAYMENT SUMMARY
                 </span>
                 <div style={{ marginTop: '0.5rem', lineHeight: '1.5' }}>
-                  Pay Date: {payroll.paymentDate ? new Date(payroll.paymentDate).toLocaleDateString() : 'Pending Release'}<br />
-                  Email: {payroll.employee.email}<br />
-                  Phone: {payroll.employee.phone || 'N/A'}<br />
-                  Account Status: ACTIVE
+                  <span>Disbursement Date: <strong>{payroll.payDate ? new Date(payroll.payDate).toLocaleDateString() : 'Pending'}</strong></span><br />
+                  <span style={{ color: '#718096', fontSize: '0.85rem' }}>Payment Method: Direct Bank Deposit</span>
                 </div>
               </div>
             </div>
 
+            {/* Compensation Line Items Table */}
             <table className="payslip-invoice-table">
               <thead>
                 <tr>
@@ -112,18 +113,18 @@ const PayslipModal = ({ payroll, onClose }) => {
               <tbody>
                 <tr>
                   <td>Base Salary (Monthly)</td>
-                  <td style={{ textAlign: 'right' }}>${payroll.baseSalary.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right' }}>₹{payroll.baseSalary.toLocaleString()}</td>
                   <td style={{ textAlign: 'right' }}>-</td>
                 </tr>
                 <tr>
                   <td>Performance Bonus / Additions</td>
-                  <td style={{ textAlign: 'right' }}>${payroll.bonuses.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right' }}>₹{payroll.bonuses.toLocaleString()}</td>
                   <td style={{ textAlign: 'right' }}>-</td>
                 </tr>
                 <tr>
                   <td>Tax & Leave Deductions</td>
                   <td style={{ textAlign: 'right' }}>-</td>
-                  <td style={{ textAlign: 'right', color: '#e53e3e' }}>${payroll.deductions.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right', color: '#e53e3e' }}>₹{payroll.deductions.toLocaleString()}</td>
                 </tr>
               </tbody>
             </table>
@@ -134,7 +135,7 @@ const PayslipModal = ({ payroll, onClose }) => {
                   NET SALARY DISBURSED
                 </span>
                 <span style={{ fontSize: '1.5rem', color: '#2d3748' }}>
-                  ${payroll.netSalary.toLocaleString()}
+                  ₹{payroll.netSalary.toLocaleString()}
                 </span>
               </div>
             </div>
@@ -149,7 +150,8 @@ const PayslipModal = ({ payroll, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

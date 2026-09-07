@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import PayslipModal from '../components/PayslipModal';
@@ -245,10 +246,10 @@ const Payroll = () => {
                         <td><strong>{pr.month}</strong></td>
                         <td><strong>{pr.employee?.employeeId}</strong></td>
                         <td>{pr.employee ? `${pr.employee.firstName} ${pr.employee.lastName}` : 'N/A'}</td>
-                        <td>${pr.baseSalary?.toLocaleString()}</td>
-                        <td style={{ color: 'var(--success)' }}>+${pr.bonuses?.toLocaleString()}</td>
-                        <td style={{ color: 'var(--danger)' }}>-${pr.deductions?.toLocaleString()}</td>
-                        <td><strong>${pr.netSalary?.toLocaleString()}</strong></td>
+                        <td>₹{pr.baseSalary?.toLocaleString()}</td>
+                        <td style={{ color: 'var(--success)' }}>+₹{pr.bonuses?.toLocaleString()}</td>
+                        <td style={{ color: 'var(--danger)' }}>-₹{pr.deductions?.toLocaleString()}</td>
+                        <td><strong>₹{pr.netSalary?.toLocaleString()}</strong></td>
                         <td>
                           <span className={`badge badge-${pr.status.toLowerCase()}`}>{pr.status}</span>
                         </td>
@@ -311,10 +312,10 @@ const Payroll = () => {
                   {payrolls.map((pr) => (
                     <tr key={pr._id}>
                       <td><strong>{pr.month}</strong></td>
-                      <td>${pr.baseSalary?.toLocaleString()}</td>
-                      <td style={{ color: 'var(--success)' }}>+${pr.bonuses?.toLocaleString()}</td>
-                      <td style={{ color: 'var(--danger)' }}>-${pr.deductions?.toLocaleString()}</td>
-                      <td><strong>${pr.netSalary?.toLocaleString()}</strong></td>
+                      <td>₹{pr.baseSalary?.toLocaleString()}</td>
+                      <td style={{ color: 'var(--success)' }}>+₹{pr.bonuses?.toLocaleString()}</td>
+                      <td style={{ color: 'var(--danger)' }}>-₹{pr.deductions?.toLocaleString()}</td>
+                      <td><strong>₹{pr.netSalary?.toLocaleString()}</strong></td>
                       <td>{pr.paymentDate ? new Date(pr.paymentDate).toLocaleDateString() : 'Awaiting Release'}</td>
                       <td>
                         <span className={`badge badge-${pr.status.toLowerCase()}`}>{pr.status}</span>
@@ -340,8 +341,8 @@ const Payroll = () => {
       )}
 
       {/* Admin Edit Adjustment Modal */}
-      {editOpen && (
-        <div className="modal-overlay">
+      {editOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setEditOpen(false); }}>
           <div className="modal-content" style={{ width: '450px' }}>
             <div className="modal-header">
               <h3 className="modal-title">Adjust Pay Details</h3>
@@ -360,11 +361,11 @@ const Payroll = () => {
                 <div style={{ marginBottom: '1.25rem', fontSize: '0.9rem', lineHeight: '1.6' }}>
                   Employee: <strong>{editData.employeeName}</strong><br />
                   Pay Month: <strong>{editData.month}</strong><br />
-                  Base Contract Salary: <strong>${editData.baseSalary?.toLocaleString()}</strong>
+                  Base Contract Salary: <strong>₹{editData.baseSalary?.toLocaleString()}</strong>
                 </div>
 
                 <div className="form-group">
-                  <label>Performance Bonuses ($)</label>
+                  <label>Performance Bonuses (₹)</label>
                   <input
                     type="number"
                     className="form-control"
@@ -375,7 +376,7 @@ const Payroll = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Tax & Leave Deductions ($)</label>
+                  <label>Tax & Leave Deductions (₹)</label>
                   <input
                     type="number"
                     className="form-control"
@@ -407,7 +408,8 @@ const Payroll = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Render printable payslip details modal */}

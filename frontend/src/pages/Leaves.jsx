@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import StatCard from '../components/StatCard';
@@ -183,8 +184,8 @@ const ManagerApprovalView = ({ showToast }) => {
   return (
     <>
       {/* Confirm Correction Modal */}
-      {modal && (
-        <div className="modal-overlay">
+      {modal && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setModal(null); }}>
           <div className="modal-content" style={{ width: '430px' }}>
             <div className="modal-header">
               <h3 className="modal-title">{modal.status === 'Approved' ? '✅ Approve' : '❌ Reject'} Correction</h3>
@@ -208,12 +209,13 @@ const ManagerApprovalView = ({ showToast }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Resignation Accept/Reject Modal */}
-      {actionModal && (
-        <div className="modal-overlay">
+      {actionModal && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setActionModal(null); }}>
           <div className="modal-content" style={{ width: '460px' }}>
             <div className="modal-header">
               <h3 className="modal-title">{actionModal.status === 'Approved' ? '✅ Accept' : '❌ Reject'} Resignation</h3>
@@ -234,7 +236,8 @@ const ManagerApprovalView = ({ showToast }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Stats */}

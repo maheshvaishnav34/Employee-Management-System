@@ -28,6 +28,7 @@ import {
   GraduationCap,
   LifeBuoy,
   Award,
+  Sliders,
 } from 'lucide-react';
 
 const MENU_COLORS = {
@@ -59,6 +60,7 @@ const MENU_COLORS = {
   '/chat': '#ec4899',
   '/resignations': '#ef4444',
   '/admin': '#ef4444',
+  '/system-policies': '#059669',
   '/profile': '#a78bfa',
 };
 
@@ -106,12 +108,13 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
     { path: '/departments', label: 'Departments', icon: Building2, roles: ['admin'] },
     { path: '/payroll', label: user?.role === 'employee' ? 'Salary / Payslip' : 'Payroll', icon: CircleDollarSign, roles: ['admin', 'hr', 'employee'] },
     { path: '/recruitment', label: 'Recruitment', icon: Users, roles: ['admin', 'hr'] },
-    { path: '/training', label: 'Training', icon: GraduationCap, roles: ['admin', 'hr', 'employee'] },
+    { path: '/training', label: 'Training', icon: GraduationCap, roles: ['admin', 'hr', 'manager', 'employee'] },
     { path: '/documents', label: user?.role === 'hr' ? 'HR Policies' : 'Documents', icon: FolderClosed, roles: ['admin', 'hr', 'employee'] },
     { path: '/resignations', label: user?.role === 'hr' ? 'Employee Exit' : 'Resignation', icon: FileText, roles: ['admin', 'hr', 'employee'] },
     { path: '/rewards', label: 'Rewards', icon: Trophy, roles: ['admin'] },
     { path: '/assets', label: 'Assets', icon: Laptop, roles: ['admin'] },
     { path: '/expenses', label: 'Expenses', icon: Receipt, roles: ['admin'] },
+    { path: '/system-policies', label: 'Policies & Settings', icon: Sliders, roles: ['admin', 'hr'] },
     { path: '/admin', label: 'Admin Panel', icon: ShieldAlert, roles: ['admin'], divider: true },
     { path: '/profile', label: 'My Profile', icon: UserCircle, roles: ['admin', 'hr', 'manager', 'employee'], divider: true },
   ];

@@ -1290,12 +1290,12 @@ h1, h2, h3, h4, h5, h6 {
 
 @keyframes slideUp {
   from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  to { transform: none; opacity: 1; }
 }
 
 @keyframes slideUpFade {
   from { transform: translateY(18px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  to { transform: none; opacity: 1; }
 }
 
 @keyframes scaleUp {
@@ -2769,59 +2769,88 @@ h1, h2, h3, h4, h5, h6 {
    Base Modal & Form Controls System
    ────────────────────────────────────────────────────────────────────────── */
 .modal-overlay {
-  position: fixed;
-  inset: 0;
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
   background: rgba(15, 23, 42, 0.72) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  padding: 1rem;
-  animation: fadeIn 0.18s ease-out;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 99999 !important;
+  padding: 1.25rem 1rem !important;
+  overflow-y: auto !important;
+  animation: fadeIn 0.18s ease-out !important;
+  box-sizing: border-box !important;
 }
 
 .modal-content {
-  background-color: #ffffff !important;
+  background-color: var(--bg-secondary) !important;
   color: var(--text-primary) !important;
-  border-radius: 20px;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-color);
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-  position: relative;
-  max-width: 580px;
+  border-radius: 20px !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-color) !important;
+  border: 1px solid var(--border-color) !important;
+  position: relative !important;
+  max-width: 600px;
   width: 100%;
+  max-height: calc(100vh - 2.5rem) !important;
+  max-height: calc(100dvh - 2.5rem) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  margin: auto !important;
+  animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.modal-content > form {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
 }
 
 .dark .modal-content {
   background-color: #131d38 !important;
   color: #f8fafc !important;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--border-color);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--border-color) !important;
 }
 
 .modal-header {
-  padding: 1.25rem 1.75rem;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  padding: 1.25rem 1.75rem !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
   background-color: var(--bg-secondary) !important;
+  flex-shrink: 0 !important;
 }
 
 .modal-body {
-  padding: 1.5rem 1.75rem;
+  padding: 1.5rem 1.75rem !important;
   background-color: var(--bg-secondary) !important;
+  overflow-y: auto !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
 }
 
 .modal-footer {
-  padding: 1.15rem 1.75rem;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.75rem;
+  padding: 1.15rem 1.75rem !important;
+  border-top: 1px solid var(--border-color) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.75rem !important;
   background-color: var(--bg-primary) !important;
+  flex-shrink: 0 !important;
 }
 
 .form-group {

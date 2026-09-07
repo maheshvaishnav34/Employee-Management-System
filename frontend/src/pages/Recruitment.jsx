@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { Users, Plus, Calendar, Check, X, AlertCircle, FileText } from 'lucide-react';
@@ -259,8 +260,8 @@ const Recruitment = () => {
       </div>
 
       {/* Add Candidate Modal */}
-      {formOpen && (
-        <div className="modal-overlay">
+      {formOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setFormOpen(false); }}>
           <div className="modal-content" style={{ width: '500px' }}>
             <div className="modal-header">
               <h3 className="modal-title">Register Candidate</h3>
@@ -340,7 +341,8 @@ const Recruitment = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

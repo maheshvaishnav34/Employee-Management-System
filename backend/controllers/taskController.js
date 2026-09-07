@@ -36,7 +36,14 @@ const getTasks = async (req, res, next) => {
       .populate('assignedBy', 'username email')
       .sort({ dueDate: 1, createdAt: -1 });
 
-    res.status(200).json({ success: true, count: tasks.length, tasks });
+    // Deduplicate by ID to guarantee single unique task instances
+    const uniqueMap = new Map();
+    tasks.forEach(t => {
+      if (t && t._id) uniqueMap.set(t._id.toString(), t);
+    });
+    const uniqueTasks = Array.from(uniqueMap.values());
+
+    res.status(200).json({ success: true, count: uniqueTasks.length, tasks: uniqueTasks });
   } catch (error) {
     next(error);
   }
@@ -49,9 +56,11 @@ const createTask = async (req, res, next) => {
   try {
     const { title, description, assignedTo, dueDate, priority } = req.body;
 
-    if (!title || !assignedTo) {
+    if (!title || !title.trim() || !assignedTo) {
       return res.status(400).json({ success: false, message: 'Title and assignedTo are required' });
     }
+
+    const trimmedTitle = title.trim();
 
     // Department restrictions for managers
     if (req.user.role === 'manager') {
@@ -62,8 +71,39 @@ const createTask = async (req, res, next) => {
       }
     }
 
+    // Prevent rapid duplicate task creation (debounce within 30 seconds)
+    const escapedTitle = trimmedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const recentDuplicate = await Task.findOne({
+      title: { $regex: new RegExp(`^${escapedTitle}$`, 'i') },
+      assignedTo,
+      createdAt: { $gte: new Date(Date.now() - 30 * 1000) }
+    }).populate('assignedTo', 'firstName lastName employeeId designation')
+      .populate('assignedBy', 'username email');
+
+    if (recentDuplicate) {
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Task already created recently', 
+        task: recentDuplicate 
+      });
+    }
+
+    // Prevent assigning the exact same task if an active one (Pending/In Progress) already exists
+    const activeDuplicate = await Task.findOne({
+      title: { $regex: new RegExp(`^${escapedTitle}$`, 'i') },
+      assignedTo,
+      status: { $in: ['Pending', 'In Progress'] }
+    });
+
+    if (activeDuplicate) {
+      return res.status(400).json({
+        success: false,
+        message: `Task "${trimmedTitle}" is already assigned to this employee and is currently active.`
+      });
+    }
+
     const task = await Task.create({
-      title,
+      title: trimmedTitle,
       description: description || '',
       assignedTo,
       assignedBy: req.user._id,

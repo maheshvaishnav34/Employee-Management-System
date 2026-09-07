@@ -39,6 +39,32 @@ const SettingSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    employeeIdPrefix: {
+      type: String,
+      default: 'EMP',
+      trim: true,
+    },
+    employeeIdDigits: {
+      type: Number,
+      default: 3,
+    },
+    employeeIdNextNumber: {
+      type: Number,
+      default: 107,
+    },
+    employeeIdSeparator: {
+      type: String,
+      default: 'None',
+      trim: true,
+    },
+    autoGenerateEmployeeId: {
+      type: Boolean,
+      default: true,
+    },
+    allowCustomEmployeeId: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     timestamps: true,

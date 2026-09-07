@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Edit2, Trash2, X, AlertCircle, Briefcase } from 'lucide-react';
@@ -363,8 +364,8 @@ const Departments = () => {
       )}
 
       {/* Department CRUD Modal Form */}
-      {modalOpen && (
-        <div className="modal-overlay">
+      {modalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}>
           <div className="modal-content">
             <div className="modal-header">
               <h3 className="modal-title">{isEditMode ? 'Modify Department Details' : 'Create New Department'}</h3>
@@ -430,12 +431,13 @@ const Departments = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Designation CRUD Modal Form */}
-      {desgModalOpen && (
-        <div className="modal-overlay">
+      {desgModalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setDesgModalOpen(false); }}>
           <div className="modal-content">
             <div className="modal-header">
               <h3 className="modal-title">{isDesgEditMode ? 'Modify Designation Details' : 'Create New Designation'}</h3>
@@ -485,7 +487,8 @@ const Departments = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

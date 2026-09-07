@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -369,7 +370,7 @@ const Complaints = () => {
       )}
 
       {/* Submit Complaint Modal */}
-      {submitModalOpen && (
+      {submitModalOpen && createPortal(
         <div className="modal-overlay active" onClick={() => setSubmitModalOpen(false)}>
           <div
             className="modal-content"
@@ -452,7 +453,7 @@ const Complaints = () => {
 
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
-                      PRIORITY LEVEL
+                      PRIORITY
                     </label>
                     <select
                       value={submitForm.priority}
@@ -470,12 +471,12 @@ const Complaints = () => {
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
-                    DETAILED DESCRIPTION *
+                    DESCRIPTION *
                   </label>
                   <textarea
-                    required
                     rows={4}
-                    placeholder="Explain what happened, including dates, locations, or parties involved..."
+                    required
+                    placeholder="Describe the issue, dates, individuals involved, and any steps already taken..."
                     value={submitForm.description}
                     onChange={e => setSubmitForm({ ...submitForm, description: e.target.value })}
                     className="form-control"
@@ -483,18 +484,17 @@ const Complaints = () => {
                   />
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.03)', borderRadius: '10px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer', userSelect: 'none' }}>
                   <input
                     type="checkbox"
-                    id="anonymousCheck"
                     checked={submitForm.isAnonymous}
                     onChange={e => setSubmitForm({ ...submitForm, isAnonymous: e.target.checked })}
-                    style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--primary-accent)' }}
+                    style={{ width: '16px', height: '16px', accentColor: '#ef4444' }}
                   />
-                  <label htmlFor="anonymousCheck" style={{ fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', margin: 0, color: 'var(--text-primary)' }}>
-                    Submit Anonymously (Identity will be hidden from managers)
-                  </label>
-                </div>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                    Submit Anonymously (Hide my identity from department manager)
+                  </span>
+                </label>
               </div>
 
               {/* Modal Footer */}
@@ -508,11 +508,12 @@ const Complaints = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Action / Resolve Modal (HR / Manager / Admin) */}
-      {resolveModalOpen && selectedComplaint && (
+      {resolveModalOpen && selectedComplaint && createPortal(
         <div className="modal-overlay active" onClick={() => setResolveModalOpen(false)}>
           <div
             className="modal-content"
@@ -602,7 +603,8 @@ const Complaints = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

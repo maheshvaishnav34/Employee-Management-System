@@ -1,22 +1,21 @@
 import React, { useState } from 'react';
 
-// Helper to format currency
+// Helper to format currency in INR (₹)
 const formatCurrency = (val) => {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'INR',
     maximumFractionDigits: 0,
-  }).format(val);
+  }).format(val || 0);
 };
 
-// Helper for compact axis formatting (e.g. $60k)
+// Helper for compact axis formatting (e.g. ₹60k, ₹1.9L)
 const formatCompactCurrency = (val) => {
+  if (val >= 100000) {
+    return '₹' + (val / 100000).toFixed(1) + 'L';
+  }
   if (val >= 1000) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-    }).format(val / 1000) + 'k';
+    return '₹' + Math.round(val / 1000) + 'k';
   }
   return formatCurrency(val);
 };

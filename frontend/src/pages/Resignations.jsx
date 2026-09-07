@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -512,8 +513,8 @@ const Resignations = () => {
       )}
 
       {/* Submit Resignation Modal (Employee Only) */}
-      {submitModalOpen && (
-        <div className="modal-overlay">
+      {submitModalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setSubmitModalOpen(false); }}>
           <div className="modal-content" style={{ maxWidth: '500px' }}>
             <div className="modal-header">
               <h3 className="modal-title">Submit Exit Request</h3>
@@ -570,12 +571,13 @@ const Resignations = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Review Resignation Modal (Admin/HR/Manager) */}
-      {actionModalOpen && selectedResignation && (
-        <div className="modal-overlay">
+      {actionModalOpen && selectedResignation && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setActionModalOpen(false); setSelectedResignation(null); } }}>
           <div className="modal-content" style={{ maxWidth: '600px' }}>
             <div className="modal-header">
               <h3 className="modal-title">Review Exit Request</h3>
@@ -733,7 +735,8 @@ const Resignations = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

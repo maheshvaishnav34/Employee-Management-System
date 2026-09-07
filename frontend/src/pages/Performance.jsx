@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -833,8 +834,8 @@ const Performance = () => {
           )}
 
           {/* Form Modal */}
-          {formOpen && (
-            <div className="modal-overlay">
+          {formOpen && createPortal(
+            <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setFormOpen(false); }}>
               <div className="modal-content" style={{ width: '520px' }}>
                 <div className="modal-header">
                   <h3 className="modal-title">Log Performance Review</h3>
@@ -941,7 +942,8 @@ const Performance = () => {
                   </div>
                 </form>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </>
       )}

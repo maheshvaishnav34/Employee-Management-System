@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -1276,7 +1277,7 @@ const Profile = () => {
                     <InfoRow icon={Building2} label="Department" value={profile?.department?.name || 'Operations & Tech'} accent="#0284c7" />
                     <InfoRow
                       icon={DollarSign} label="Monthly Base Compensation"
-                      value={profile?.salary ? `$${profile.salary.toLocaleString()}` : '$6,500.00 (Standard Band)'}
+                      value={profile?.salary ? `₹${profile.salary.toLocaleString()}` : '₹65,000.00 (Standard Band)'}
                       accent="#10b981"
                     />
                     <InfoRow
@@ -1444,7 +1445,7 @@ const Profile = () => {
                               <strong style={{ fontSize: '0.88rem', display: 'block', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</strong>
                               <span style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', display: 'block' }}>S/N: {asset.sn}</span>
                               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', fontSize: '0.72rem', fontWeight: 700 }}>
-                                <span style={{ color: '#10b981' }}>${asset.value}</span>
+                                <span style={{ color: '#10b981' }}>₹{asset.value}</span>
                                 <span style={{ color: 'var(--text-secondary)' }}>·</span>
                                 <span style={{ color: '#f59e0b' }}>Cond: {asset.cond}</span>
                               </div>
@@ -1470,7 +1471,7 @@ const Profile = () => {
                               <strong style={{ fontSize: '0.88rem', display: 'block', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</strong>
                               <span style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', display: 'block' }}>S/N: {asset.serialNumber}</span>
                               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', fontSize: '0.72rem', fontWeight: 700 }}>
-                                <span style={{ color: '#10b981' }}>${asset.value}</span>
+                                <span style={{ color: '#10b981' }}>₹{asset.value}</span>
                                 <span style={{ color: 'var(--text-secondary)' }}>·</span>
                                 <span style={{ color: '#f59e0b' }}>Cond: {asset.condition}</span>
                               </div>
@@ -1508,7 +1509,7 @@ const Profile = () => {
                               </span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                              <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary)' }}>${exp.amount.toFixed(2)}</strong>
+                              <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary)' }}>₹{exp.amount.toFixed(2)}</strong>
                               <span style={{
                                 fontSize: '0.72rem', fontWeight: 700, padding: '0.2rem 0.55rem',
                                 borderRadius: '6px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981'
@@ -1534,7 +1535,7 @@ const Profile = () => {
                               </span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                              <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary)' }}>${exp.amount.toFixed(2)}</strong>
+                              <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary)' }}>₹{exp.amount.toFixed(2)}</strong>
                               <span className={`badge badge-${exp.status.toLowerCase()}`} style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem' }}>{exp.status}</span>
                             </div>
                           </div>
@@ -1853,7 +1854,7 @@ const Profile = () => {
       )}
 
       {/* Preset Avatar Selection Modal */}
-      {showAvatarModal && (
+      {showAvatarModal && createPortal(
         <div
           className="modal-overlay"
           onClick={(e) => { if (e.target === e.currentTarget) setShowAvatarModal(false); }}
@@ -1965,11 +1966,12 @@ const Profile = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Preset Cover Selection Modal */}
-      {showCoverModal && (
+      {showCoverModal && createPortal(
         <div
           className="modal-overlay"
           onClick={(e) => { if (e.target === e.currentTarget) setShowCoverModal(false); }}
@@ -2084,11 +2086,12 @@ const Profile = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 🔐 Change Password Modal */}
-      {showPasswordModal && (
+      {showPasswordModal && createPortal(
         <div
           className="modal-overlay"
           onClick={(e) => { if (e.target === e.currentTarget) { setShowPasswordModal(false); setPwdError(''); setPwdSuccess(''); } }}
@@ -2230,7 +2233,8 @@ const Profile = () => {
               </form>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

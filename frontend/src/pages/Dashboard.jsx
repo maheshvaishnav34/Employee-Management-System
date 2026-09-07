@@ -496,7 +496,7 @@ const Dashboard = () => {
                       <div>
                         <strong style={{ fontSize: '1.05rem' }}>Month: {data.recentPayslip.month}</strong>
                         <span style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                          Net: <strong style={{ color: 'var(--success)' }}>${data.recentPayslip.netSalary?.toLocaleString()}</strong>
+                          Net: <strong style={{ color: 'var(--success)' }}>₹{data.recentPayslip.netSalary?.toLocaleString()}</strong>
                         </span>
                       </div>
                       <span className={`badge badge-${data.recentPayslip.status?.toLowerCase()}`}>{data.recentPayslip.status}</span>

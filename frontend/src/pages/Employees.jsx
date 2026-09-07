@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -104,9 +105,9 @@ const SkillMatrixTab = ({ showToast }) => {
   return (
     <div style={{ animation: 'fadeIn 0.4s ease both' }}>
       {/* Edit Modal */}
-      {editEntry && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ width: '580px', maxHeight: '92vh', overflowY: 'auto' }}>
+      {editEntry && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setEditEntry(null); }}>
+          <div className="modal-content" style={{ width: '580px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <SkillsAvatar name={`${editEntry.employee?.firstName} ${editEntry.employee?.lastName}`} />
@@ -193,7 +194,8 @@ const SkillMatrixTab = ({ showToast }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Team Skill Coverage */}
@@ -387,8 +389,8 @@ const TransferRequestsTab = ({ showToast }) => {
   return (
     <div style={{ animation: 'fadeIn 0.4s ease both' }}>
       {/* Action Modal */}
-      {actionModal && (
-        <div className="modal-overlay">
+      {actionModal && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setActionModal(null); }}>
           <div className="modal-content" style={{ width: '440px' }}>
             <div className="modal-header">
               <h3 className="modal-title">{actionModal.status === 'Approved' ? '✅ Approve' : '❌ Reject'} Transfer</h3>
@@ -409,7 +411,8 @@ const TransferRequestsTab = ({ showToast }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Action Row */}
@@ -695,8 +698,27 @@ const Employees = () => {
   const handleOpenAddForm = () => {
     setIsEditMode(false);
     setFormError('');
+
+    // Generate Employee ID based on System Configuration & Policies
+    let generatedId = `EMP${Math.floor(100 + Math.random() * 900)}`;
+    try {
+      const savedPolicies = localStorage.getItem('ems_system_policies');
+      if (savedPolicies) {
+        const p = JSON.parse(savedPolicies);
+        if (p.autoGenerateEmployeeId !== false) {
+          const prefix = (p.employeeIdPrefix || 'EMP').toUpperCase();
+          const sep = p.employeeIdSeparator === 'None' ? '' : (p.employeeIdSeparator || '');
+          const digits = Number(p.employeeIdDigits) || 3;
+          const nextNum = Number(p.employeeIdNextNumber) || 101;
+          generatedId = `${prefix}${sep}${String(nextNum).padStart(digits, '0')}`;
+        } else {
+          generatedId = '';
+        }
+      }
+    } catch (e) {}
+
     setFormData({
-      employeeId: `EMP${Math.floor(100 + Math.random() * 900)}`,
+      employeeId: generatedId,
       firstName: '',
       lastName: '',
       email: '',
@@ -759,6 +781,20 @@ const Employees = () => {
         const data = await api.post('/users', formData);
         if (data.success) {
           setFormOpen(false);
+
+          // Advance Employee ID sequence in System Policies if configured
+          try {
+            const savedPolicies = localStorage.getItem('ems_system_policies');
+            if (savedPolicies) {
+              const p = JSON.parse(savedPolicies);
+              if (p.employeeIdNextNumber) {
+                p.employeeIdNextNumber = Number(p.employeeIdNextNumber) + 1;
+                localStorage.setItem('ems_system_policies', JSON.stringify(p));
+                api.put('/admin/settings', { employeeIdNextNumber: p.employeeIdNextNumber }).catch(() => {});
+              }
+            }
+          } catch (e) {}
+
           fetchEmployees();
           showToast('New employee registered successfully!');
         }
@@ -974,7 +1010,7 @@ const Employees = () => {
                           </span>
                         </td>
                         <td>{new Date(emp.joiningDate).toLocaleDateString()}</td>
-                        {showSalary && <td>${emp.salary?.toLocaleString()}</td>}
+                        {showSalary && <td>₹{emp.salary?.toLocaleString()}</td>}
                         <td>
                           <span className={`badge badge-${emp.status.toLowerCase()}`}>{emp.status}</span>
                         </td>
@@ -1018,12 +1054,12 @@ const Employees = () => {
           </div>
 
           {/* CRUD Form Modal */}
-          {formOpen && (
-            <div className="modal-overlay">
-              <div className="modal-content" style={{ width: '600px' }}>
+          {formOpen && createPortal(
+            <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setFormOpen(false); }}>
+              <div className="modal-content" style={{ width: '640px' }}>
                 <div className="modal-header">
                   <h3 className="modal-title">{isEditMode ? 'Edit Employee Details' : 'Register New Employee'}</h3>
-                  <button className="modal-close-btn" onClick={() => setFormOpen(false)}>
+                  <button type="button" className="modal-close-btn" onClick={() => setFormOpen(false)}>
                     <X size={20} />
                   </button>
                 </div>
@@ -1156,7 +1192,7 @@ const Employees = () => {
                         </select>
                       </div>
                       <div className="form-group">
-                        <label>Monthly Salary ($) *</label>
+                        <label>Monthly Salary (₹) *</label>
                         <input
                           type="number"
                           className="form-control"
@@ -1221,12 +1257,13 @@ const Employees = () => {
                   </div>
                 </form>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
 
           {/* Detailed Profile View Drawer Modal */}
-          {profileOpen && selectedEmployee && (
-            <div className="modal-overlay">
+          {profileOpen && selectedEmployee && createPortal(
+            <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setProfileOpen(false); }}>
               <div className="modal-content" style={{ width: '650px' }}>
                 <div className="modal-header">
                   <h3 className="modal-title">Employee Profile Card</h3>
@@ -1272,7 +1309,7 @@ const Employees = () => {
                           {showSalary && (
                             <div className="profile-info-item">
                               <span className="profile-info-label">Monthly Base</span>
-                              <span className="profile-info-val">${selectedEmployee.salary?.toLocaleString()}</span>
+                              <span className="profile-info-val">₹{selectedEmployee.salary?.toLocaleString()}</span>
                             </div>
                           )}
                           <div className="profile-info-item">
@@ -1342,7 +1379,8 @@ const Employees = () => {
                   </button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </>
       )}

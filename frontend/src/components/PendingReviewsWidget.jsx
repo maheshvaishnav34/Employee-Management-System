@@ -381,7 +381,7 @@ const PendingReviewsWidget = () => {
                       {exp.employee ? `${exp.employee.firstName} ${exp.employee.lastName}` : 'Employee'}
                     </strong>
                     <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                      {exp.title} · <strong style={{ color: 'var(--success)' }}>${exp.amount.toFixed(2)}</strong>
+                      {exp.title} · <strong style={{ color: 'var(--success)' }}>₹{exp.amount.toFixed(2)}</strong>
                     </span>
                   </div>
                   {isActioning ? (

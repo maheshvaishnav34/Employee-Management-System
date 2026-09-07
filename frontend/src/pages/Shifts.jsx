@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -853,7 +854,7 @@ const Shifts = () => {
       )}
 
       {/* ── Schedule Shift Modal ── */}
-      {modalOpen && (
+      {modalOpen && createPortal(
         <div
           className="modal-overlay"
           onClick={(e) => {
@@ -1220,7 +1221,8 @@ const Shifts = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

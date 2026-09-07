@@ -6,7 +6,7 @@ import {
   ChevronDown, AlertCircle, Check, X, RefreshCw,
   UserCog, Activity, BarChart3, Search, Shield,
   Mail, Clock, Calendar, DollarSign, Database, UploadCloud, FileText, CheckCircle2,
-  FileSpreadsheet
+  FileSpreadsheet, Sliders
 } from 'lucide-react';
 
 // Custom switch toggle component
@@ -925,10 +925,15 @@ const AdminPanel = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: '2rem', alignItems: 'start' }}>
           {/* Admin System Settings */}
           <div className="card">
-            <span className="chart-title" style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Shield size={16} style={{ color: 'var(--primary-accent)' }} />
-              System Policies &amp; Settings
-            </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <span className="chart-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Shield size={16} style={{ color: 'var(--primary-accent)' }} />
+                System Configuration &amp; Policies
+              </span>
+              <a href="/system-policies" className="btn btn-secondary" style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', textDecoration: 'none' }}>
+                <Sliders size={13} /> Full Policy Center &amp; Rules ➜
+              </a>
+            </div>
             <form onSubmit={handleSettingsSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div className="form-row">
                 <div className="form-group">
@@ -988,7 +993,7 @@ const AdminPanel = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Minimum Allowable Wage ($)</label>
+                  <label>Minimum Allowable Wage (₹)</label>
                   <input
                     type="number"
                     className="form-control"

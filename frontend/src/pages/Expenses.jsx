@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -183,7 +184,7 @@ const Expenses = () => {
           <div key={s.label} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 1.5rem' }}>
             <div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.25rem' }}>{s.label}</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 800 }}>${s.value.toFixed(2)}</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800 }}>₹{s.value.toFixed(2)}</div>
             </div>
             <div style={{
               width: '42px', height: '42px', borderRadius: '10px',
@@ -275,7 +276,7 @@ const Expenses = () => {
                         {exp.category}
                       </span>
                     </td>
-                    <td style={{ fontWeight: 700 }}>${exp.amount.toFixed(2)}</td>
+                    <td style={{ fontWeight: 700 }}>₹{exp.amount.toFixed(2)}</td>
                     <td>{new Date(exp.date).toLocaleDateString()}</td>
                     <td>
                       <span className={`badge ${
@@ -320,8 +321,8 @@ const Expenses = () => {
       )}
 
       {/* Submit Claim Modal */}
-      {claimModalOpen && (
-        <div className="modal-overlay">
+      {claimModalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setClaimModalOpen(false); }}>
           <div className="modal-content">
             <div className="modal-header">
               <h3 className="modal-title">Submit Reimbursement Claim</h3>
@@ -337,7 +338,7 @@ const Expenses = () => {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Amount ($) *</label>
+                    <label>Amount (₹) *</label>
                     <input type="number" step="0.01" className="form-control" placeholder="e.g. 150.50"
                       value={claimForm.amount} onChange={e => setClaimForm({ ...claimForm, amount: e.target.value })} required />
                   </div>
@@ -367,12 +368,13 @@ const Expenses = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Approve/Reject Expense Modal (HR) */}
-      {actionModalOpen && (
-        <div className="modal-overlay">
+      {actionModalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setActionModalOpen(false); setSelectedExpense(null); } }}>
           <div className="modal-content">
             <div className="modal-header">
               <h3 className="modal-title">Review Reimbursement Claim</h3>
@@ -392,7 +394,7 @@ const Expenses = () => {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ fontWeight: 600 }}>Amount:</span>
-                    <span style={{ fontWeight: 700, color: 'var(--success)' }}>${selectedExpense?.amount.toFixed(2)}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--success)' }}>₹{selectedExpense?.amount.toFixed(2)}</span>
                   </div>
                 </div>
                 <div className="form-group">
@@ -414,7 +416,8 @@ const Expenses = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

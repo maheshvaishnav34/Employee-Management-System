@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { Trophy, Star, Award, Zap, Plus, X, AlertCircle, CheckCircle } from 'lucide-react';
@@ -279,8 +280,8 @@ const Rewards = () => {
       )}
 
       {/* Give Reward Modal */}
-      {modalOpen && (
-        <div className="modal-overlay">
+      {modalOpen && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}>
           <div className="modal-content" style={{ width: '500px' }}>
             <div className="modal-header">
               <h3 className="modal-title">Give Reward</h3>
@@ -335,7 +336,8 @@ const Rewards = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

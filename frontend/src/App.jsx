@@ -36,6 +36,7 @@ import Chat from './pages/Chat';
 import Resignations from './pages/Resignations';
 import Complaints from './pages/Complaints';
 import Training from './pages/Training';
+import SystemPoliciesSettings from './pages/SystemPoliciesSettings';
 
 
 // Protected Route Guard
@@ -264,7 +265,7 @@ function App() {
           />
           <Route path="/profile" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee']}><Profile /></ProtectedRoute>} />
           <Route path="/tasks" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee']}><Tasks /></ProtectedRoute>} />
-          <Route path="/training" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'employee']}><Training /></ProtectedRoute>} />
+          <Route path="/training" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee']}><Training /></ProtectedRoute>} />
           <Route path="/documents" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'employee']}><Documents /></ProtectedRoute>} />
           <Route path="/complaints" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee']}><Complaints /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee']}><Chat /></ProtectedRoute>} />
@@ -274,6 +275,7 @@ function App() {
           <Route path="/rewards" element={<ProtectedRoute allowedRoles={['admin']}><Rewards /></ProtectedRoute>} />
           <Route path="/assets" element={<ProtectedRoute allowedRoles={['admin']}><Assets /></ProtectedRoute>} />
           <Route path="/expenses" element={<ProtectedRoute allowedRoles={['admin']}><Expenses /></ProtectedRoute>} />
+          <Route path="/system-policies" element={<ProtectedRoute allowedRoles={['admin', 'hr']}><SystemPoliciesSettings /></ProtectedRoute>} />
 
 
           {/* Fallback routes */}

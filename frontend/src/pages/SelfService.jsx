@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -345,10 +346,10 @@ const SelfService = () => {
                     payslips.map((p) => (
                       <tr key={p._id}>
                         <td><strong>{p.month}</strong></td>
-                        <td>${p.baseSalary?.toLocaleString()}</td>
-                        <td style={{ color: 'var(--success)', fontWeight: 600 }}>+${p.bonuses?.toLocaleString()}</td>
-                        <td style={{ color: 'var(--danger)', fontWeight: 600 }}>-${p.deductions?.toLocaleString()}</td>
-                        <td style={{ color: 'var(--success)', fontWeight: 800 }}>${p.netSalary?.toLocaleString()}</td>
+                        <td>₹{p.baseSalary?.toLocaleString()}</td>
+                        <td style={{ color: 'var(--success)', fontWeight: 600 }}>+₹{p.bonuses?.toLocaleString()}</td>
+                        <td style={{ color: 'var(--danger)', fontWeight: 600 }}>-₹{p.deductions?.toLocaleString()}</td>
+                        <td style={{ color: 'var(--success)', fontWeight: 800 }}>₹{p.netSalary?.toLocaleString()}</td>
                         <td>
                           <span className={`badge ${p.status === 'Paid' ? 'badge-present' : 'badge-pending'}`}>
                             {p.status}
@@ -479,8 +480,8 @@ const SelfService = () => {
       {(activeModal === 'experience' || activeModal === 'offer') && (() => {
         const letter = getLetterContent(activeModal);
         const emp = profile?.employee;
-        return (
-          <div className="modal-overlay no-print">
+        return createPortal(
+          <div className="modal-overlay no-print" onClick={(e) => { if (e.target === e.currentTarget) setActiveModal(null); }}>
             <div className="modal-content" style={{ width: '640px', maxHeight: '95vh' }}>
               <div className="modal-header">
                 <h3 className="modal-title">Letter Preview</h3>
@@ -502,7 +503,7 @@ const SelfService = () => {
                       <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>EMS Hub Technologies</h2>
                       <span style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Enterprise Workspace Hub</span>
                     </div>
-                    <span style={{ fontSize: '#0.7rem', color: '#64748b', textAlign: 'right', fontSize: '0.75rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'right' }}>
                       123 Corporate Blvd<br/>Suite 500, New York
                     </span>
                   </div>
@@ -528,7 +529,7 @@ const SelfService = () => {
 
                   {/* Closing signature section */}
                   <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
-                    <p style={{ fontSize: '#0.88rem', margin: '0 0 1.5rem 0', color: '#475569' }}>Yours faithfully,</p>
+                    <p style={{ fontSize: '0.88rem', margin: '0 0 1.5rem 0', color: '#475569' }}>Yours faithfully,</p>
                     {/* Simulated sign stamp signature */}
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       {/* Signature graphic line */}
@@ -558,15 +559,21 @@ const SelfService = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
 
       {/* Payslip Invoice Modal */}
       {activeModal === 'payslip' && selectedPayslip && (() => {
         const emp = profile?.employee;
-        return (
-          <div className="modal-overlay no-print">
+        return createPortal(
+          <div className="modal-overlay no-print" onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedPayslip(null);
+              setActiveModal(null);
+            }
+          }}>
             <div className="modal-content" style={{ width: '550px' }}>
               <div className="modal-header">
                 <h3 className="modal-title">Payslip Statement: {selectedPayslip.month}</h3>
@@ -624,21 +631,21 @@ const SelfService = () => {
                     <tbody>
                       <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '0.6rem 0.5rem' }}>Basic Base Salary</td>
-                        <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right' }}>${selectedPayslip.baseSalary?.toLocaleString()}</td>
+                        <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right' }}>₹{selectedPayslip.baseSalary?.toLocaleString()}</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '0.6rem 0.5rem', color: '#2ebd7f' }}>Bonuses & Incentives</td>
-                        <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', color: '#2ebd7f' }}>+${selectedPayslip.bonuses?.toLocaleString()}</td>
+                        <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', color: '#2ebd7f' }}>+₹{selectedPayslip.bonuses?.toLocaleString()}</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '0.6rem 0.5rem', color: '#ef4444' }}>Tax Deductions</td>
-                        <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', color: '#ef4444' }}>-${selectedPayslip.deductions?.toLocaleString()}</td>
+                        <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', color: '#ef4444' }}>-₹{selectedPayslip.deductions?.toLocaleString()}</td>
                       </tr>
                       {/* Total */}
                       <tr style={{ fontWeight: 800, background: 'rgba(46,189,127,0.05)' }}>
                         <td style={{ padding: '0.75rem 0.5rem', color: '#0f172a', fontSize: '0.9rem' }}>Net Take-Home Salary</td>
                         <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: '#2ebd7f', fontSize: '0.95rem' }}>
-                          ${selectedPayslip.netSalary?.toLocaleString()}
+                          ₹{selectedPayslip.netSalary?.toLocaleString()}
                         </td>
                       </tr>
                     </tbody>
@@ -661,7 +668,8 @@ const SelfService = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
     </div>

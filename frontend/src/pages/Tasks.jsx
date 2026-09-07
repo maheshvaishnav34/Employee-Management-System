@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -65,6 +66,7 @@ const Tasks = () => {
   });
   const [isEditMode, setIsEditMode] = useState(false);
   const [editTaskId, setEditTaskId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const isHRPlus = ['admin', 'hr', 'manager'].includes(user?.role);
 
@@ -77,10 +79,19 @@ const Tasks = () => {
       const qs = params.length ? `?${params.join('&')}` : '';
       const res = await api.get(`/tasks${qs}`);
       if (res.success) {
-        setTasks(res.tasks);
+        // Guarantee only unique tasks by _id
+        const unique = [];
+        const seen = new Set();
+        (res.tasks || []).forEach(t => {
+          if (t && t._id && !seen.has(t._id.toString())) {
+            seen.add(t._id.toString());
+            unique.push(t);
+          }
+        });
+        setTasks(unique);
         if (!filterStatus && !filterPriority) {
-          cachedTasksList = res.tasks;
-          try { sessionStorage.setItem(`ems_cached_tasks_${user?.role}`, JSON.stringify(res.tasks)); } catch (e) {}
+          cachedTasksList = unique;
+          try { sessionStorage.setItem(`ems_cached_tasks_${user?.role}`, JSON.stringify(unique)); } catch (e) {}
         }
       }
     } catch (e) {
@@ -106,6 +117,17 @@ const Tasks = () => {
     fetchTasks();
     fetchEmployees();
   }, [filterStatus, filterPriority]);
+
+  // Handle ESC key to dismiss modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && modalOpen && !submitting) {
+        setModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [modalOpen, submitting]);
 
   const handleOpenAdd = () => {
     setIsEditMode(false);
@@ -141,27 +163,33 @@ const Tasks = () => {
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    if (!formData.title || !formData.assignedTo) {
+    if (submitting) return;
+    if (!formData.title?.trim() || !formData.assignedTo) {
       setFormError('Title and employee are required');
       return;
     }
     try {
+      setSubmitting(true);
       setFormError('');
       let res;
       if (isEditMode) {
-        res = await api.put(`/tasks/${editTaskId}`, formData);
+        res = await api.put(`/tasks/${editTaskId}`, { ...formData, title: formData.title.trim() });
       } else {
-        res = await api.post('/tasks', formData);
+        res = await api.post('/tasks', { ...formData, title: formData.title.trim() });
       }
       if (res.success) {
         setModalOpen(false);
         setIsEditMode(false);
         setEditTaskId(null);
         setFormData({ title: '', description: '', assignedTo: '', dueDate: '', priority: 'Medium' });
-        fetchTasks();
+        fetchTasks(true);
+      } else {
+        setFormError(res.message || 'Failed to save task');
       }
     } catch (e) {
-      setFormError(e.message);
+      setFormError(e.message || 'Failed to save task');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -296,7 +324,7 @@ const Tasks = () => {
                     <p style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', margin: '0 0 0.75rem', lineHeight: 1.5 }}>{task.description}</p>
                   )}
                   <div style={{ display: 'flex', gap: '1rem', fontSize: '0.78rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                    <span><User size={12} style={{ verticalAlign: 'middle' }} /> {task.assignedTo?.firstName} {task.assignedTo?.lastName}</span>
+                    <span><User size={12} style={{ verticalAlign: 'middle' }} /> {task.assignedTo?.firstName ? `${task.assignedTo.firstName} ${task.assignedTo.lastName || ''}`.trim() : (task.assignedTo?.name || 'Unassigned')}</span>
                     {task.dueDate && (
                       <span style={{ color: isOverdue ? 'var(--danger)' : undefined }}>
                         <Calendar size={12} style={{ verticalAlign: 'middle' }} /> Due: {new Date(task.dueDate).toLocaleDateString()}
@@ -369,57 +397,283 @@ const Tasks = () => {
         </div>
       )}
 
-      {/* Create Task Modal */}
-      {modalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ width: '540px' }}>
-            <div className="modal-header">
-              <h3 className="modal-title">{isEditMode ? 'Modify Task Details' : 'Assign New Task'}</h3>
-              <button className="modal-close-btn" onClick={() => setModalOpen(false)}><X size={20} /></button>
+      {/* Create / Edit Task Modal */}
+      {modalOpen && createPortal(
+        <div
+          className="modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !submitting) setModalOpen(false);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            backgroundColor: 'rgba(15, 23, 42, 0.72)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.25rem',
+            animation: 'fadeIn 0.2s ease-out',
+          }}
+        >
+          <div
+            className="modal-content"
+            style={{
+              width: '520px',
+              maxWidth: '96vw',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: '16px',
+              boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.25)',
+              overflow: 'hidden',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              className="modal-header"
+              style={{
+                padding: '1.25rem 1.75rem',
+                borderBottom: '1px solid var(--border-color)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'var(--bg-secondary)',
+                flexShrink: 0,
+              }}
+            >
+              <h3
+                className="modal-title"
+                style={{
+                  fontSize: '1.15rem',
+                  fontWeight: 700,
+                  margin: 0,
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {isEditMode ? 'Modify Task Details' : 'Assign New Task'}
+              </h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setModalOpen(false)}
+                title="Close"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '6px',
+                  transition: 'color 0.15s ease',
+                }}
+              >
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleCreateTask}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-                {formError && <div className="alert alert-danger" style={{ display: 'flex', gap: '0.5rem' }}><AlertCircle size={16} /> {formError}</div>}
-                <div className="form-group">
-                  <label>Task Title *</label>
-                  <input type="text" className="form-control" placeholder="e.g. Prepare Q2 Report"
-                    value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
+
+            {/* Modal Form */}
+            <form
+              onSubmit={handleCreateTask}
+              style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, margin: 0 }}
+            >
+              <div
+                className="modal-body"
+                style={{
+                  padding: '1.4rem 1.75rem',
+                  overflowY: 'auto',
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.1rem',
+                  background: 'var(--bg-secondary)',
+                }}
+              >
+                {formError && (
+                  <div
+                    className="alert alert-danger"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem',
+                      margin: 0,
+                    }}
+                  >
+                    <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                    <span>{formError}</span>
+                  </div>
+                )}
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
+                    Task Title <span style={{ color: 'var(--danger)' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Prepare Q2 Report"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    required
+                    style={{
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      height: '42px',
+                    }}
+                  />
                 </div>
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea rows="3" className="form-control" placeholder="Task details..." style={{ resize: 'none' }}
-                    value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
+                    Description
+                  </label>
+                  <textarea
+                    rows="3"
+                    className="form-control"
+                    placeholder="Task details..."
+                    style={{
+                      resize: 'vertical',
+                      minHeight: '80px',
+                      maxHeight: '160px',
+                      padding: '0.65rem 0.85rem',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                    }}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  />
                 </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Assign To *</label>
-                    <select className="form-control" value={formData.assignedTo} onChange={e => setFormData({ ...formData, assignedTo: e.target.value })} required>
+
+                <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', margin: 0 }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
+                      Assign To <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
+                    <select
+                      className="form-control"
+                      value={formData.assignedTo}
+                      onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
+                      required
+                      style={{
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        height: '42px',
+                      }}
+                    >
                       <option value="">Select Employee</option>
-                      {employees.map(emp => (
-                        <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.employeeId})</option>
+                      {employees.map((emp) => (
+                        <option key={emp._id} value={emp._id}>
+                          {emp.firstName} {emp.lastName} {emp.designation ? `• ${emp.designation}` : `(${emp.employeeId || ''})`}
+                        </option>
                       ))}
                     </select>
                   </div>
-                  <div className="form-group">
-                    <label>Priority</label>
-                    <select className="form-control" value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}>
-                      {['Low', 'Medium', 'High', 'Critical'].map(p => <option key={p}>{p}</option>)}
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
+                      Priority
+                    </label>
+                    <select
+                      className="form-control"
+                      value={formData.priority}
+                      onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                      style={{
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        height: '42px',
+                      }}
+                    >
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                      <option value="Critical">Critical</option>
                     </select>
                   </div>
                 </div>
-                <div className="form-group">
-                  <label>Due Date</label>
-                  <input type="date" className="form-control" value={formData.dueDate}
-                    onChange={e => setFormData({ ...formData, dueDate: e.target.value })} />
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    style={{
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      height: '42px',
+                    }}
+                  />
                 </div>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">{isEditMode ? 'Update Task' : 'Assign Task'}</button>
+
+              {/* Modal Footer */}
+              <div
+                className="modal-footer"
+                style={{
+                  padding: '1.15rem 1.75rem',
+                  borderTop: '1px solid var(--border-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  gap: '0.75rem',
+                  background: 'var(--bg-secondary)',
+                  flexShrink: 0,
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => setModalOpen(false)}
+                  style={{
+                    padding: '0.65rem 1.5rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{
+                    padding: '0.65rem 1.5rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#2563eb',
+                    color: '#ffffff',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
+                  }}
+                >
+                  {submitting ? 'Saving...' : isEditMode ? 'Update Task' : 'Assign Task'}
+                </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

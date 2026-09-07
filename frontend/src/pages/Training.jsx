@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -27,6 +28,7 @@ const Training = () => {
 
   // New Training Modal (HR/Admin)
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [formError, setFormError] = useState('');
   const [createForm, setCreateForm] = useState({
     title: '',
     category: 'Technical',
@@ -77,13 +79,18 @@ const Training = () => {
 
   const handleCreateTraining = async (e) => {
     e.preventDefault();
-    if (!createForm.title || !createForm.description) return;
+    if (!createForm.title || !createForm.description) {
+      setFormError('Please enter a course title and syllabus description.');
+      return;
+    }
 
     try {
       setCreating(true);
+      setFormError('');
       const res = await api.post('/training', createForm);
       if (res.success) {
         setCreateModalOpen(false);
+        setFormError('');
         setCreateForm({
           title: '',
           category: 'Technical',
@@ -96,7 +103,7 @@ const Training = () => {
         fetchTrainings();
       }
     } catch (err) {
-      alert(err.message || 'Failed to create training');
+      setFormError(err.message || 'Failed to create training program');
     } finally {
       setCreating(false);
     }
@@ -169,7 +176,7 @@ const Training = () => {
 
         {isHRPlus && (
           <button
-            onClick={() => setCreateModalOpen(true)}
+            onClick={() => { setFormError(''); setCreateModalOpen(true); }}
             className="btn btn-primary"
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1.25rem', borderRadius: '10px' }}
           >
@@ -392,8 +399,8 @@ const Training = () => {
       )}
 
       {/* Modal: Create Training (HR/Admin) */}
-      {createModalOpen && (
-        <div className="modal-overlay active" onClick={() => setCreateModalOpen(false)}>
+      {createModalOpen && createPortal(
+        <div className="modal-overlay active" onClick={(e) => { if (e.target === e.currentTarget) setCreateModalOpen(false); }}>
           <div
             className="modal-content"
             style={{ maxWidth: '560px', width: '92%', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}
@@ -414,7 +421,7 @@ const Training = () => {
                     Create Training Program
                   </h3>
                   <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                    Publish new professional development course
+                    Assign curriculum, instructor & departments
                   </span>
                 </div>
               </div>
@@ -430,11 +437,19 @@ const Training = () => {
               </button>
             </div>
 
+            {/* Modal Form */}
             <form onSubmit={handleCreateTraining}>
-              <div className="modal-body" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+              <div className="modal-body" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.2rem', maxHeight: '72vh', overflowY: 'auto' }}>
+                {formError && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 600 }}>
+                    <AlertCircle size={16} /> {formError}
+                  </div>
+                )}
+
+                {/* Title */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
-                    COURSE / PROGRAM TITLE *
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
+                    Course Title *
                   </label>
                   <input
                     type="text"
@@ -541,12 +556,13 @@ const Training = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal: Update Progress (Employee) */}
-      {progressModalOpen && selectedTraining && (
-        <div className="modal-overlay active" onClick={() => setProgressModalOpen(false)}>
+      {progressModalOpen && selectedTraining && createPortal(
+        <div className="modal-overlay active" onClick={(e) => { if (e.target === e.currentTarget) setProgressModalOpen(false); }}>
           <div
             className="modal-content"
             style={{ maxWidth: '520px', width: '92%', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}
@@ -746,7 +762,8 @@ const Training = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
