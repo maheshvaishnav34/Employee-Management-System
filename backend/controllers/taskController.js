@@ -1,5 +1,6 @@
 const Task = require('../models/Task');
 const Employee = require('../models/Employee');
+const { resolveLinkedEmployee, resolveManagerContext, isTargetEmployeeInManagerScope } = require('../utils/orgHelper');
 
 // @desc    Get tasks (employee sees own, HR/Admin sees all)
 // @route   GET /api/tasks
@@ -9,19 +10,16 @@ const getTasks = async (req, res, next) => {
     let query = {};
 
     if (req.user.role === 'employee') {
-      const emp = await Employee.findOne({ email: req.user.email });
+      const emp = await resolveLinkedEmployee(req.user);
       if (!emp) return res.status(200).json({ success: true, count: 0, tasks: [] });
       query = { assignedTo: emp._id };
     } else if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp) return res.status(200).json({ success: true, count: 0, tasks: [] });
-      
-      const teamEmployees = await Employee.find({ department: mgrEmp.department }).select('_id');
-      const teamEmployeeIds = teamEmployees.map(emp => emp._id);
-      
+      const ctx = await resolveManagerContext(req.user);
+      if (!ctx.mgrEmp) return res.status(200).json({ success: true, count: 0, tasks: [] });
+
       query = {
         $or: [
-          { assignedTo: { $in: teamEmployeeIds } },
+          { assignedTo: { $in: ctx.employeeIds } },
           { assignedBy: req.user._id }
         ]
       };
@@ -64,9 +62,8 @@ const createTask = async (req, res, next) => {
 
     // Department restrictions for managers
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      const targetEmp = await Employee.findById(assignedTo);
-      if (!mgrEmp || !targetEmp || mgrEmp.department.toString() !== targetEmp.department.toString()) {
+      const inScope = await isTargetEmployeeInManagerScope(req.user, assignedTo);
+      if (!inScope) {
         return res.status(403).json({ success: false, message: 'You can only assign tasks to employees in your department' });
       }
     }
@@ -131,7 +128,7 @@ const updateTask = async (req, res, next) => {
 
     // Employees can only update their own task's status and progress
     if (req.user.role === 'employee') {
-      const emp = await Employee.findOne({ email: req.user.email });
+      const emp = await resolveLinkedEmployee(req.user);
       if (!emp || task.assignedTo._id.toString() !== emp._id.toString()) {
         return res.status(403).json({ success: false, message: 'Not authorized to update this task' });
       }
@@ -147,15 +144,17 @@ const updateTask = async (req, res, next) => {
     } else {
       // Managers can only update tasks of employees in their department
       if (req.user.role === 'manager') {
-        const mgrEmp = await Employee.findOne({ email: req.user.email });
-        if (!mgrEmp || !task.assignedTo || task.assignedTo.department.toString() !== mgrEmp.department.toString()) {
+        const assigneeInScope = task.assignedTo
+          ? await isTargetEmployeeInManagerScope(req.user, task.assignedTo)
+          : false;
+        if (!assigneeInScope) {
           return res.status(403).json({ success: false, message: 'Not authorized to manage tasks outside your department' });
         }
-        
+
         // Also verify the new assignee if it's being changed
         if (req.body.assignedTo) {
-          const targetEmp = await Employee.findById(req.body.assignedTo);
-          if (!targetEmp || targetEmp.department.toString() !== mgrEmp.department.toString()) {
+          const nextInScope = await isTargetEmployeeInManagerScope(req.user, req.body.assignedTo);
+          if (!nextInScope) {
             return res.status(403).json({ success: false, message: 'You can only assign tasks to employees in your department' });
           }
         }
@@ -186,8 +185,10 @@ const deleteTask = async (req, res, next) => {
 
     // Managers can only delete tasks of employees in their department
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp || !task.assignedTo || task.assignedTo.department.toString() !== mgrEmp.department.toString()) {
+      const inScope = task.assignedTo
+        ? await isTargetEmployeeInManagerScope(req.user, task.assignedTo)
+        : false;
+      if (!inScope) {
         return res.status(403).json({ success: false, message: 'Not authorized to delete tasks outside your department' });
       }
     }

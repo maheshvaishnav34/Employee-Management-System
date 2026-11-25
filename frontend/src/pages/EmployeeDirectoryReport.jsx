@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
 import { 
-  ArrowLeft, Search, ChevronDown, Download, Users, 
-  Briefcase, DollarSign, Activity, FileSpreadsheet, 
+  ArrowLeft, Search, ChevronDown, Users, 
+  IndianRupee, FileSpreadsheet, 
   Import, ShieldAlert, Check, UserCheck, UserMinus
 } from 'lucide-react';
 
@@ -42,7 +42,10 @@ const EmployeeDirectoryReport = () => {
   };
 
   useEffect(() => {
-    fetchData();
+    const id = setTimeout(() => {
+      fetchData();
+    }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   useEffect(() => {
@@ -100,9 +103,9 @@ const EmployeeDirectoryReport = () => {
 
   const maxDeptCount = Math.max(...Object.values(deptCounts), 1);
 
-  // Format currency
+  // Format currency (INR)
   const formatSalary = (val) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val || 0);
   };
 
   // CSV / JSON Exports
@@ -115,7 +118,7 @@ const EmployeeDirectoryReport = () => {
 
     try {
       if (format === 'csv') {
-        const headers = ['Name', 'Employee ID', 'Designation', 'Department', 'Role', 'Joining Date', 'Salary', 'Status'];
+        const headers = ['Name', 'Employee ID', 'Designation', 'Department', 'Role', 'Joining Date', 'Salary (INR)', 'Status'];
         const csvContent = [
           headers.join(','),
           ...filteredRows.map(row => [
@@ -372,7 +375,7 @@ const EmployeeDirectoryReport = () => {
             {/* Average salary */}
             <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '1.25rem' }}>
               <span style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--warning-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <DollarSign size={20} color="var(--warning)" />
+                <IndianRupee size={20} color="var(--warning)" />
               </span>
               <div>
                 <h3 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>{formatSalary(avgSalary)}</h3>
@@ -483,7 +486,7 @@ const EmployeeDirectoryReport = () => {
 
                         {/* Salary */}
                         <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {row.salary ? formatSalary(row.salary) : '$0'}
+                          {row.salary ? formatSalary(row.salary) : formatSalary(0)}
                         </td>
 
                         {/* Status Badge */}

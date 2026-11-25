@@ -13,11 +13,19 @@ const AttendanceRegularizationSchema = new mongoose.Schema(
     },
     clockIn: {
       type: Date,
-      required: true,
+      default: null,
     },
     clockOut: {
       type: Date,
       required: true,
+    },
+    originalClockIn: {
+      type: Date,
+      default: null,
+    },
+    originalClockOut: {
+      type: Date,
+      default: null,
     },
     reason: {
       type: String,
@@ -39,13 +47,34 @@ const AttendanceRegularizationSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    session: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'AttendanceSession',
+      default: null,
+    },
+    sessionNumber: {
+      type: Number,
+      default: null,
+    },
+    requestType: {
+      type: String,
+      enum: ['Correction', 'MissedPunch', 'AddSession'],
+      default: 'Correction',
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Prevent duplicate correction requests per employee per day
-AttendanceRegularizationSchema.index({ employee: 1, date: 1 }, { unique: true });
+// Prevent duplicate pending correction requests per employee, date, and session
+AttendanceRegularizationSchema.index(
+  { employee: 1, date: 1, sessionNumber: 1 },
+  {
+    name: 'uniq_pending_regularization_session',
+    unique: true,
+    partialFilterExpression: { status: 'Pending' },
+  }
+);
 
 module.exports = mongoose.model('AttendanceRegularization', AttendanceRegularizationSchema);

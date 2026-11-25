@@ -1,16 +1,13 @@
 const Complaint = require('../models/Complaint');
-const Employee = require('../models/Employee');
+const { resolveLinkedEmployee, resolveManagerContext } = require('../utils/orgHelper');
 
 // @desc    Submit a complaint or workplace support request
 // @route   POST /api/complaints
 // @access  Private (Employee, all authenticated users)
 const createComplaint = async (req, res, next) => {
   try {
-    let employeeId = req.user.employee ? req.user.employee._id : null;
-    if (!employeeId) {
-      const emp = await Employee.findOne({ email: req.user.email });
-      if (emp) employeeId = emp._id;
-    }
+    const emp = await resolveLinkedEmployee(req.user);
+    const employeeId = emp?._id || null;
 
     if (!employeeId) {
       return res.status(400).json({ success: false, message: 'Your account is not linked to an employee profile' });
@@ -80,11 +77,11 @@ const getAllComplaints = async (req, res, next) => {
     let query = {};
 
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp) return res.status(200).json({ success: true, complaints: [] });
-      const deptEmployees = await Employee.find({ department: mgrEmp.department }).select('_id');
-      const empIds = deptEmployees.map(e => e._id);
-      query.employee = { $in: empIds };
+      const ctx = await resolveManagerContext(req.user);
+      if (!ctx.mgrEmp || ctx.employeeIds.length === 0) {
+        return res.status(200).json({ success: true, count: 0, complaints: [] });
+      }
+      query.employee = { $in: ctx.employeeIds };
     }
 
     const rawComplaints = await Complaint.find(query)

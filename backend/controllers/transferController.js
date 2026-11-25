@@ -1,6 +1,7 @@
 const TransferRequest = require('../models/TransferRequest');
 const Employee = require('../models/Employee');
 const Department = require('../models/Department');
+const { resolveManagerContext, isTargetEmployeeInManagerScope } = require('../utils/orgHelper');
 
 // @desc    Create a transfer request (manager recommends)
 // @route   POST /api/transfers
@@ -25,8 +26,8 @@ const createTransferRequest = async (req, res, next) => {
 
     // Manager can only transfer their team members
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp || mgrEmp.department.toString() !== employee.department._id.toString()) {
+      const inScope = await isTargetEmployeeInManagerScope(req.user, employee);
+      if (!inScope) {
         return res.status(403).json({ success: false, message: 'Not authorized to transfer employees outside your department' });
       }
     }
@@ -60,11 +61,11 @@ const getAllTransfers = async (req, res, next) => {
     let query = {};
 
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp) return res.status(200).json({ success: true, transfers: [] });
-      const teamEmployees = await Employee.find({ department: mgrEmp.department }).select('_id');
-      const teamIds = teamEmployees.map(e => e._id);
-      query.employee = { $in: teamIds };
+      const ctx = await resolveManagerContext(req.user);
+      if (!ctx.mgrEmp || ctx.employeeIds.length === 0) {
+        return res.status(200).json({ success: true, count: 0, transfers: [] });
+      }
+      query.employee = { $in: ctx.employeeIds };
     }
 
     const transfers = await TransferRequest.find(query)
@@ -104,9 +105,13 @@ const updateTransferStatus = async (req, res, next) => {
     transfer.comments = comments || '';
     await transfer.save();
 
-    // If approved, update employee's department
+    // If approved, update employee's department and clear old department head slot if they led it
     if (status === 'Approved') {
       await Employee.findByIdAndUpdate(transfer.employee._id, { department: transfer.toDepartment });
+      await Department.updateMany(
+        { manager: transfer.employee._id, _id: { $ne: transfer.toDepartment } },
+        { manager: null }
+      );
     }
 
     const populated = await TransferRequest.findById(transfer._id)

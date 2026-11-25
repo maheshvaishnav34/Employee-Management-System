@@ -1,5 +1,6 @@
 const SkillMatrix = require('../models/SkillMatrix');
 const Employee = require('../models/Employee');
+const { resolveManagerContext, isTargetEmployeeInManagerScope } = require('../utils/orgHelper');
 
 // @desc    Get skill matrix for a specific employee
 // @route   GET /api/skills/:employeeId
@@ -35,10 +36,12 @@ const getTeamSkillMatrix = async (req, res, next) => {
     let employeeFilter = {};
 
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp) return res.status(200).json({ success: true, teamSkills: [] });
-      const teamEmployees = await Employee.find({ department: mgrEmp.department }).select('_id firstName lastName employeeId designation');
-      const teamIds = teamEmployees.map(e => e._id);
+      const ctx = await resolveManagerContext(req.user);
+      if (!ctx.mgrEmp || ctx.employeeIds.length === 0) {
+        return res.status(200).json({ success: true, teamSkills: [] });
+      }
+      const teamEmployees = ctx.teamEmployees;
+      const teamIds = ctx.employeeIds;
       employeeFilter = { employee: { $in: teamIds } };
 
       // Return all team employees with their skill data (even if no entry yet)
@@ -79,8 +82,8 @@ const updateSkillMatrix = async (req, res, next) => {
 
     // Manager can only update their own team
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp || mgrEmp.department.toString() !== employee.department.toString()) {
+      const inScope = await isTargetEmployeeInManagerScope(req.user, employee);
+      if (!inScope) {
         return res.status(403).json({ success: false, message: 'Not authorized to update skills outside your department' });
       }
     }

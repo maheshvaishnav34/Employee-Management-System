@@ -2,6 +2,7 @@ const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const LeaveRequest = require('../models/LeaveRequest');
 const Task = require('../models/Task');
+const { resolveManagerContext } = require('../utils/orgHelper');
 
 // Performance Score Algorithm:
 // Attendance Score  = (Present Days / Working Days) * 100  → weight 40%
@@ -26,9 +27,11 @@ const getTeamInsights = async (req, res, next) => {
     let employees = [];
 
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp) return res.status(200).json({ success: true, insights: [], alerts: {} });
-      employees = await Employee.find({ department: mgrEmp.department, status: 'Active' });
+      const ctx = await resolveManagerContext(req.user);
+      if (!ctx.mgrEmp || ctx.deptIds.length === 0) {
+        return res.status(200).json({ success: true, insights: [], alerts: {} });
+      }
+      employees = await Employee.find({ department: { $in: ctx.deptIds }, status: 'Active' }).populate('department', 'name');
     } else {
       employees = await Employee.find({ status: 'Active' }).populate('department', 'name');
     }

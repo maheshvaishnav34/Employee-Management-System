@@ -1,5 +1,6 @@
 const LeaveRequest = require('../models/LeaveRequest');
 const Employee = require('../models/Employee');
+const { resolveManagerContext, isTargetEmployeeInManagerScope } = require('../utils/orgHelper');
 
 // Helper to calculate total days between two dates inclusive
 const calculateDays = (start, end) => {
@@ -123,13 +124,11 @@ const getAllLeaves = async (req, res, next) => {
 
     // Department restrictions for managers
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp) {
+      const ctx = await resolveManagerContext(req.user);
+      if (!ctx.mgrEmp || ctx.employeeIds.length === 0) {
         return res.status(200).json({ success: true, count: 0, leaves: [] });
       }
-      const teamEmployees = await Employee.find({ department: mgrEmp.department }).select('_id');
-      const teamEmployeeIds = teamEmployees.map(e => e._id);
-      query.employee = { $in: teamEmployeeIds };
+      query.employee = { $in: ctx.employeeIds };
     }
 
     const leaves = await LeaveRequest.find(query)
@@ -165,9 +164,8 @@ const updateLeaveStatus = async (req, res, next) => {
 
     // Department restrictions for managers
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      const targetEmp = await Employee.findById(leaveRequest.employee);
-      if (!mgrEmp || !targetEmp || mgrEmp.department.toString() !== targetEmp.department.toString()) {
+      const inScope = await isTargetEmployeeInManagerScope(req.user, leaveRequest.employee);
+      if (!inScope) {
         return res.status(403).json({ success: false, message: 'Not authorized to update leave request outside your department' });
       }
     }

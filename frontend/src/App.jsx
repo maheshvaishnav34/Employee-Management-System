@@ -1,43 +1,79 @@
-import React, { useState } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import Dashboard from './pages/Dashboard';
-import Employees from './pages/Employees';
-import Departments from './pages/Departments';
-import Attendance from './pages/Attendance';
-import Leaves from './pages/Leaves';
-import Payroll from './pages/Payroll';
-import AdminPanel from './pages/AdminPanel';
-import Recruitment from './pages/Recruitment';
-import Performance from './pages/Performance';
-import ReportsPage from './pages/ReportsPage';
-import InSummaryReports from './pages/InSummaryReports';
-import EmployeeDirectoryReport from './pages/EmployeeDirectoryReport';
-import AttendanceAuditReport from './pages/AttendanceAuditReport';
-import PayrollLedgerReport from './pages/PayrollLedgerReport';
-import LeaveAllocationReport from './pages/LeaveAllocationReport';
-import ProductivityReport from './pages/ProductivityReport';
-import Profile from './pages/Profile';
-import SelfService from './pages/SelfService';
-import Tasks from './pages/Tasks';
-import Directory from './pages/Directory';
-import Rewards from './pages/Rewards';
-import Assets from './pages/Assets';
-import Expenses from './pages/Expenses';
-import Shifts from './pages/Shifts';
-import Documents from './pages/Documents';
-import Chat from './pages/Chat';
-import Resignations from './pages/Resignations';
-import Complaints from './pages/Complaints';
-import Training from './pages/Training';
-import SystemPoliciesSettings from './pages/SystemPoliciesSettings';
+import { SkeletonDashboard } from './components/Skeleton';
 
+const ServiceUnavailable = lazy(() => import('./pages/ServiceUnavailable'));
+
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Employees = lazy(() => import('./pages/Employees'));
+const Departments = lazy(() => import('./pages/Departments'));
+const Attendance = lazy(() => import('./pages/Attendance'));
+const Leaves = lazy(() => import('./pages/Leaves'));
+const Payroll = lazy(() => import('./pages/Payroll'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const Recruitment = lazy(() => import('./pages/Recruitment'));
+const Performance = lazy(() => import('./pages/Performance'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const InSummaryReports = lazy(() => import('./pages/InSummaryReports'));
+const EmployeeDirectoryReport = lazy(() => import('./pages/EmployeeDirectoryReport'));
+const AttendanceAuditReport = lazy(() => import('./pages/AttendanceAuditReport'));
+const PayrollLedgerReport = lazy(() => import('./pages/PayrollLedgerReport'));
+const LeaveAllocationReport = lazy(() => import('./pages/LeaveAllocationReport'));
+const ProductivityReport = lazy(() => import('./pages/ProductivityReport'));
+const Profile = lazy(() => import('./pages/Profile'));
+const SelfService = lazy(() => import('./pages/SelfService'));
+const Tasks = lazy(() => import('./pages/Tasks'));
+const Directory = lazy(() => import('./pages/Directory'));
+const Rewards = lazy(() => import('./pages/Rewards'));
+const Assets = lazy(() => import('./pages/Assets'));
+const Expenses = lazy(() => import('./pages/Expenses'));
+const Shifts = lazy(() => import('./pages/Shifts'));
+const Documents = lazy(() => import('./pages/Documents'));
+const Chat = lazy(() => import('./pages/Chat'));
+const Resignations = lazy(() => import('./pages/Resignations'));
+const Complaints = lazy(() => import('./pages/Complaints'));
+const Training = lazy(() => import('./pages/Training'));
+const SystemPoliciesSettings = lazy(() => import('./pages/SystemPoliciesSettings'));
+
+
+// Error Boundary for unexpected runtime UI crashes
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, errorMessage: '' };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, errorMessage: error?.message || '' };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Suspense fallback={<div style={{ padding: '2rem' }}><SkeletonDashboard /></div>}>
+          <ServiceUnavailable
+            info={{
+              reason: 'runtime_error',
+              message: 'The application encountered an unexpected error while rendering this page.',
+            }}
+            onRecovered={() => {
+              this.setState({ hasError: false, errorMessage: '' });
+              window.location.reload();
+            }}
+          />
+        </Suspense>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Protected Route Guard
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -67,12 +103,34 @@ function App() {
   const { user, loading } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [unavailableInfo, setUnavailableInfo] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Listen for global server/network 503 unavailability events
+  useEffect(() => {
+    const handleUnavailable = (event) => {
+      setUnavailableInfo((prev) => prev || event.detail || { status: 503 });
+    };
+    window.addEventListener('ems:service-unavailable', handleUnavailable);
+    return () => window.removeEventListener('ems:service-unavailable', handleUnavailable);
+  }, []);
 
   // Auto-close mobile sidebar when navigating to a new route
-  React.useEffect(() => {
+  useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  if (unavailableInfo) {
+    return (
+      <Suspense fallback={<div style={{ padding: '2rem' }}><SkeletonDashboard /></div>}>
+        <ServiceUnavailable
+          info={unavailableInfo}
+          onRecovered={() => setUnavailableInfo(null)}
+        />
+      </Suspense>
+    );
+  }
 
   if (loading) {
     return (
@@ -111,6 +169,7 @@ function App() {
           />
         )}
 
+        <Suspense fallback={<div style={{ padding: '2rem' }}><SkeletonDashboard /></div>}>
         <Routes>
           {/* Public Routes */}
           <Route
@@ -271,12 +330,22 @@ function App() {
           <Route path="/chat" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee']}><Chat /></ProtectedRoute>} />
           <Route path="/resignations" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'employee']}><Resignations /></ProtectedRoute>} />
           <Route path="/directory" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}><Directory /></ProtectedRoute>} />
-          <Route path="/shifts" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}><Shifts /></ProtectedRoute>} />
+          <Route path="/shifts" element={<ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee']}><Shifts /></ProtectedRoute>} />
           <Route path="/rewards" element={<ProtectedRoute allowedRoles={['admin']}><Rewards /></ProtectedRoute>} />
           <Route path="/assets" element={<ProtectedRoute allowedRoles={['admin']}><Assets /></ProtectedRoute>} />
           <Route path="/expenses" element={<ProtectedRoute allowedRoles={['admin']}><Expenses /></ProtectedRoute>} />
           <Route path="/system-policies" element={<ProtectedRoute allowedRoles={['admin', 'hr']}><SystemPoliciesSettings /></ProtectedRoute>} />
 
+
+          {/* Service Unavailable Preview Route */}
+          <Route
+            path="/503"
+            element={
+              <ServiceUnavailable
+                onRecovered={() => navigate(user ? '/dashboard' : '/login', { replace: true })}
+              />
+            }
+          />
 
           {/* Fallback routes */}
           <Route
@@ -284,9 +353,16 @@ function App() {
             element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
           />
         </Routes>
+        </Suspense>
       </div>
     </div>
   );
 }
 
-export default App;
+export default function RootApp() {
+  return (
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
+  );
+}

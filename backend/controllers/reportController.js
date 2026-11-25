@@ -2,6 +2,7 @@ const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const LeaveRequest = require('../models/LeaveRequest');
 const Department = require('../models/Department');
+const { HttpError, resolveAuthorizedEmployees } = require('../utils/attendanceHelper');
 
 // @desc    Generate employee report
 // @route   GET /api/reports/employees
@@ -46,8 +47,12 @@ const getEmployeeReport = async (req, res, next) => {
 const getAttendanceReport = async (req, res, next) => {
   try {
     const { department, employeeId, startDate, endDate } = req.query;
-    
-    let filter = {};
+
+    const scope = await resolveAuthorizedEmployees(req.user, { department, employeeId });
+
+    let filter = {
+      employee: { $in: scope.employeeIds },
+    };
     if (startDate || endDate) {
       filter.date = {};
       if (startDate) filter.date.$gte = new Date(startDate);
@@ -61,33 +66,23 @@ const getAttendanceReport = async (req, res, next) => {
       };
     }
 
-    const attendanceRecords = await Attendance.find(filter)
+    const filteredRecords = await Attendance.find(filter)
       .populate({
         path: 'employee',
         populate: { path: 'department', select: 'name' }
       })
       .sort({ date: -1 });
 
-    let filteredRecords = attendanceRecords;
-    if (department) {
-      filteredRecords = attendanceRecords.filter(
-        a => a.employee?.department?._id.toString() === department
-      );
-    }
-    if (employeeId) {
-      filteredRecords = attendanceRecords.filter(
-        a => a.employee?._id.toString() === employeeId
-      );
-    }
-
     const summary = {
       totalRecords: filteredRecords.length,
       present: filteredRecords.filter(a => a.status === 'Present').length,
       absent: filteredRecords.filter(a => a.status === 'Absent').length,
       halfDay: filteredRecords.filter(a => a.status === 'Half Day').length,
-      late: filteredRecords.filter(a => a.isLate).length,
+      late: filteredRecords.filter(a => a.status === 'Late').length,
+      totalSessions: filteredRecords.reduce((sum, a) => sum + (a.sessionCount || 1), 0),
+      totalHours: Math.round(filteredRecords.reduce((sum, a) => sum + (a.totalHours || 0), 0) * 100) / 100,
       attendanceRate: filteredRecords.length > 0 
-        ? ((filteredRecords.filter(a => a.status === 'Present').length / filteredRecords.length) * 100).toFixed(2)
+        ? ((filteredRecords.filter(a => ['Present', 'Late'].includes(a.status)).length / filteredRecords.length) * 100).toFixed(2)
         : 0,
     };
 
@@ -97,6 +92,9 @@ const getAttendanceReport = async (req, res, next) => {
       records: filteredRecords,
     });
   } catch (error) {
+    if (error instanceof HttpError) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     next(error);
   }
 };

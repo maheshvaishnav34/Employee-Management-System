@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { notifyServiceUnavailable } from '../utils/api';
 
-const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:5000/api' : '/api');
+const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 /**
  * useRealtimeNotifications
@@ -67,10 +68,22 @@ const useRealtimeNotifications = (user) => {
         }
         return;
       }
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        const errJson = await res.json().catch(() => ({}));
+        notifyServiceUnavailable({ status: res.status, reason: errJson?.reason, message: errJson?.message });
+        return;
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success) applyData(json.data);
     } catch (err) {
+      if (
+        err?.name === 'TypeError' ||
+        err?.message?.includes('Failed to fetch') ||
+        err?.message?.includes('NetworkError')
+      ) {
+        notifyServiceUnavailable({ status: 503, reason: 'network_error' });
+      }
       console.error('[Notifications REST]', err.message);
     }
   }, [applyData]);

@@ -65,6 +65,39 @@ const SettingSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    dailyTargetHours: {
+      type: Number,
+      default: 8,
+      min: 1,
+      max: 24,
+    },
+    officeStartTime: {
+      type: String,
+      default: '09:30',
+      trim: true,
+    },
+    lateGraceMinutes: {
+      type: Number,
+      default: 15,
+      min: 0,
+      max: 180,
+    },
+    halfDayThresholdHours: {
+      type: Number,
+      default: 4.5,
+      min: 1,
+      max: 12,
+    },
+    overtimeThresholdHours: {
+      type: Number,
+      default: 8,
+      min: 1,
+      max: 24,
+    },
+    autoClockOutMidnight: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

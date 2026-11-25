@@ -1,20 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
+import SessionBreakdownTable from '../components/SessionBreakdownTable';
+import { formatMinutesDuration } from '../utils/attendanceFormat';
 import { 
-  ArrowLeft, Search, Calendar, ChevronDown, Download, Clock, 
-  Hourglass, FileSpreadsheet, Import, ShieldAlert, Check,
+  ArrowLeft, Search, Calendar, ChevronDown, ChevronRight, Clock, 
+  FileSpreadsheet, Import, ShieldAlert, Check,
   CalendarDays, Activity, AlertCircle, Laptop
 } from 'lucide-react';
 
 const AttendanceAuditReport = () => {
   const navigate = useNavigate();
+  const nowDate = new Date();
+  const monthStartIso = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1).toISOString().split('T')[0];
+  const todayIso = nowDate.toISOString().split('T')[0];
   
-  // Date range defaults to June 2026 for seeded attendance data
-  const [startDate, setStartDate] = useState('2026-06-01');
-  const [endDate, setEndDate] = useState('2026-06-30');
+  const [startDate, setStartDate] = useState(monthStartIso);
+  const [endDate, setEndDate] = useState(todayIso);
   const [selectedDept, setSelectedDept] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedRow, setExpandedRow] = useState(null);
   
   const [logs, setLogs] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -106,18 +111,22 @@ const AttendanceAuditReport = () => {
 
     try {
       if (format === 'csv') {
-        const headers = ['Name', 'Employee ID', 'Date', 'Clock In', 'Clock Out', 'Total Hours', 'Overtime Hours', 'Status', 'Work Mode'];
+        const headers = ['Name', 'Employee ID', 'Department', 'Date', 'Punches', 'First Clock In', 'Last Clock Out', 'Total Hours', 'Break Mins', 'Overtime Hours', 'Status', 'Daily Status', 'Work Mode'];
         const csvContent = [
           headers.join(','),
           ...filteredLogs.map(row => [
             `"${row.employee?.firstName || ''} ${row.employee?.lastName || ''}"`,
             `"${row.employee?.employeeId || 'N/A'}"`,
+            `"${row.employee?.department?.name || 'N/A'}"`,
             `"${row.date ? new Date(row.date).toLocaleDateString() : 'N/A'}"`,
+            `"${row.sessions?.length || row.sessionCount || 1}"`,
             `"${row.clockIn ? new Date(row.clockIn).toLocaleTimeString() : 'N/A'}"`,
-            `"${row.clockOut ? new Date(row.clockOut).toLocaleTimeString() : 'N/A'}"`,
+            `"${row.clockOut ? new Date(row.clockOut).toLocaleTimeString() : 'Active'}"`,
             `"${row.totalHours || 0}"`,
+            `"${row.breakMinutes || 0}"`,
             `"${row.overtimeHours || 0}"`,
             `"${row.status || 'Present'}"`,
+            `"${row.dailyStatus || '–'}"`,
             `"${row.workMode || 'Office'}"`
           ].join(','))
         ].join('\n');
@@ -350,7 +359,7 @@ const AttendanceAuditReport = () => {
               </span>
               <div>
                 <h3 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>{totalSessions}</h3>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, margin: 0 }}>Total Sessions logged</p>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, margin: 0 }}>Total Records logged</p>
               </div>
             </div>
 
@@ -401,13 +410,15 @@ const AttendanceAuditReport = () => {
               <table className="data-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 28 }}></th>
                     <th>Date</th>
                     <th>Employee Name</th>
                     <th>Employee ID</th>
+                    <th>Punches</th>
                     <th>Clock In</th>
                     <th>Clock Out</th>
                     <th>Working Hours</th>
-                    <th>Overtime</th>
+                    <th>Break</th>
                     <th>Status</th>
                     <th>Mode</th>
                   </tr>
@@ -415,84 +426,87 @@ const AttendanceAuditReport = () => {
                 <tbody>
                   {filteredLogs.length === 0 ? (
                     <tr>
-                      <td colSpan="9" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
+                      <td colSpan="11" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
                         No attendance logs found in this date range.
                       </td>
                     </tr>
                   ) : (
-                    filteredLogs.map(log => (
-                      <tr key={log._id}>
-                        {/* Date */}
-                        <td style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>
-                          {log.date ? new Date(log.date).toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' }) : 'N/A'}
-                        </td>
-
-                        {/* Name Column */}
-                        <td style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <div style={{
-                            width: '32px', height: '32px', borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #6777ef 0%, #3f51b5 100%)',
-                            color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontWeight: 700, fontSize: '0.72rem', flexShrink: 0
-                          }}>
-                            {getInitials(log.employee?.firstName, log.employee?.lastName)}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem' }}>
-                              {log.employee?.firstName} {log.employee?.lastName}
-                            </div>
-                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', fontWeight: 600 }}>
-                              {log.employee?.designation}
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Employee ID */}
-                        <td style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                          {log.employee?.employeeId || 'N/A'}
-                        </td>
-
-                        {/* Clock In */}
-                        <td style={{ color: 'var(--text-primary)', fontSize: '0.85rem' }}>
-                          {log.clockIn ? new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
-                        </td>
-
-                        {/* Clock Out */}
-                        <td style={{ color: 'var(--text-primary)', fontSize: '0.85rem' }}>
-                          {log.clockOut ? new Date(log.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
-                        </td>
-
-                        {/* Total Hours */}
-                        <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {log.totalHours ? `${log.totalHours} hrs` : '0 hrs'}
-                        </td>
-
-                        {/* Overtime Hours */}
-                        <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                          {log.overtimeHours ? `${log.overtimeHours} hrs` : '0 hrs'}
-                        </td>
-
-                        {/* Status Badge */}
-                        <td>
-                          <span className={`badge ${
-                            log.status === 'Present' ? 'badge-present' :
-                            log.status === 'Late' ? 'badge-late' :
-                            log.status === 'Half Day' ? 'badge-halfday' :
-                            'badge-inactive'
-                          }`} style={{ fontSize: '0.68rem', padding: '0.2rem 0.5rem' }}>
-                            {log.status}
-                          </span>
-                        </td>
-
-                        {/* Work Mode */}
-                        <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-secondary)' }}>
-                            <Laptop size={11} color="var(--primary-accent)" />
-                            {log.workMode || 'Office'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                    filteredLogs.map(log => {
+                      const isExp = expandedRow === log._id;
+                      const sessCount = log.sessions?.length || log.sessionCount || 1;
+                      return (
+                        <React.Fragment key={log._id}>
+                          <tr
+                            onClick={() => log.sessions?.length && setExpandedRow(isExp ? null : log._id)}
+                            style={{ cursor: log.sessions?.length ? 'pointer' : 'default' }}
+                          >
+                            <td>
+                              {log.sessions?.length > 0 && (isExp ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+                            </td>
+                            <td style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>
+                              {log.date ? new Date(log.date).toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' }) : 'N/A'}
+                            </td>
+                            <td style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              <div style={{
+                                width: '32px', height: '32px', borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #6777ef 0%, #3f51b5 100%)',
+                                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontWeight: 700, fontSize: '0.72rem', flexShrink: 0
+                              }}>
+                                {getInitials(log.employee?.firstName, log.employee?.lastName)}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem' }}>
+                                  {log.employee?.firstName} {log.employee?.lastName}
+                                </div>
+                                <div style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', fontWeight: 600 }}>
+                                  {log.employee?.designation}
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                              {log.employee?.employeeId || 'N/A'}
+                            </td>
+                            <td style={{ fontWeight: 700 }}>{sessCount}</td>
+                            <td style={{ color: 'var(--text-primary)', fontSize: '0.85rem' }}>
+                              {log.clockIn ? new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                            </td>
+                            <td style={{ color: 'var(--text-primary)', fontSize: '0.85rem' }}>
+                              {log.clockOut ? new Date(log.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span style={{ color: '#10b981', fontWeight: 700 }}>Active</span>}
+                            </td>
+                            <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                              {formatMinutesDuration((log.totalHours || 0) * 60)}
+                            </td>
+                            <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                              {formatMinutesDuration(log.breakMinutes || 0)}
+                            </td>
+                            <td>
+                              <span className={`badge ${
+                                log.status === 'Present' ? 'badge-present' :
+                                log.status === 'Late' ? 'badge-late' :
+                                log.status === 'Half Day' ? 'badge-halfday' :
+                                'badge-inactive'
+                              }`} style={{ fontSize: '0.68rem', padding: '0.2rem 0.5rem' }}>
+                                {log.status}
+                              </span>
+                            </td>
+                            <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-secondary)' }}>
+                                <Laptop size={11} color="var(--primary-accent)" />
+                                {log.workMode || 'Office'}
+                              </span>
+                            </td>
+                          </tr>
+                          {isExp && (
+                            <tr>
+                              <td colSpan="11" style={{ padding: '0.35rem 0.75rem', background: 'var(--bg-primary)' }}>
+                                <SessionBreakdownTable sessions={log.sessions} />
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

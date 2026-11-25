@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import {
-  Calendar, Clock, Plus, Trash2, AlertCircle, RefreshCw, X, User,
-  Search, Filter, Sun, Moon, Sunset, PhoneCall, CheckCircle2,
-  CalendarDays, Users, Sparkles, Building2, Briefcase
+  Calendar, Clock, Plus, Trash2, AlertCircle, RefreshCw, X,
+  Search, Sun, Moon, Sunset, PhoneCall,
+  CalendarDays
 } from 'lucide-react';
 import { SkeletonBlock } from '../components/Skeleton';
 
@@ -79,7 +79,7 @@ const Shifts = () => {
 
   const isHRPlus = ['admin', 'hr', 'manager'].includes(user?.role);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -100,11 +100,14 @@ const Shifts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isHRPlus]);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    const timerId = setTimeout(() => {
+      fetchData();
+    }, 0);
+    return () => clearTimeout(timerId);
+  }, [fetchData]);
 
   const handleApplyPreset = (preset) => {
     setFormData(prev => ({
@@ -159,6 +162,9 @@ const Shifts = () => {
 
   // Filtered shifts calculation
   const filteredShifts = useMemo(() => {
+    const myEmployeeId = String(user?.employee?._id || user?.employee || '');
+    const myEmail = (user?.email || '').trim().toLowerCase();
+
     return shifts.filter(shift => {
       const emp = shift.employee || {};
       const empName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
@@ -172,13 +178,16 @@ const Shifts = () => {
       const matchesType = selectedType === 'All' || shift.type === selectedType;
 
       if (viewTab === 'today') {
+        const shiftDate = shift.date ? new Date(shift.date) : null;
+        if (!shiftDate || Number.isNaN(shiftDate.getTime())) return false;
         const todayStr = new Date().toDateString();
-        const shiftStr = new Date(shift.date).toDateString();
-        return matchesSearch && matchesType && (shiftStr === todayStr);
+        return matchesSearch && matchesType && (shiftDate.toDateString() === todayStr);
       }
 
       if (viewTab === 'my') {
-        const isMe = emp.email === user?.email || (user?.employee && emp._id === user.employee);
+        const shiftEmpId = String(emp._id || shift.employee || '');
+        const shiftEmpEmail = (emp.email || '').trim().toLowerCase();
+        const isMe = (myEmployeeId && shiftEmpId === myEmployeeId) || (myEmail && shiftEmpEmail === myEmail);
         return matchesSearch && matchesType && isMe;
       }
 
@@ -190,7 +199,9 @@ const Shifts = () => {
   const groupedShifts = useMemo(() => {
     const groups = {};
     filteredShifts.forEach(shift => {
-      const d = new Date(shift.date).toDateString();
+      const parsed = shift.date ? new Date(shift.date) : null;
+      if (!parsed || Number.isNaN(parsed.getTime())) return;
+      const d = parsed.toDateString();
       if (!groups[d]) groups[d] = [];
       groups[d].push(shift);
     });
@@ -211,10 +222,6 @@ const Shifts = () => {
       onCall: shifts.filter(s => s.type === 'On-Call').length,
     };
   }, [shifts]);
-
-  const todayDateStr = new Date().toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
-  });
 
   return (
     <div className="page-container page-enter" style={{ maxWidth: '1280px', margin: '0 auto', paddingBottom: '3rem' }}>
@@ -458,7 +465,7 @@ const Shifts = () => {
               transition: 'all 0.15s ease'
             }}
           >
-            All Rosters
+            {isHRPlus ? 'All Rosters' : 'My Shifts'}
           </button>
           <button
             type="button"
@@ -477,23 +484,25 @@ const Shifts = () => {
           >
             Today's Schedule
           </button>
-          <button
-            type="button"
-            onClick={() => setViewTab('my')}
-            style={{
-              padding: '0.45rem 0.9rem',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              background: viewTab === 'my' ? '#2563eb' : 'transparent',
-              color: viewTab === 'my' ? '#ffffff' : 'var(--text-secondary)',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            My Assigned Shifts
-          </button>
+          {isHRPlus && (
+            <button
+              type="button"
+              onClick={() => setViewTab('my')}
+              style={{
+                padding: '0.45rem 0.9rem',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: viewTab === 'my' ? '#2563eb' : 'transparent',
+                color: viewTab === 'my' ? '#ffffff' : 'var(--text-secondary)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              My Assigned Shifts
+            </button>
+          )}
         </div>
 
         {/* Search & Category Filter */}

@@ -7,6 +7,7 @@ const {
   updateDesignation,
   deleteDesignation,
   getDesignationsByCategory,
+  syncDesignations,
 } = require('../controllers/designationController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -18,6 +19,7 @@ router
   .post(authorize('admin'), createDesignation);
 
 router.get('/hierarchy/categories', getDesignationsByCategory);
+router.post('/sync', authorize('admin'), syncDesignations);
 
 router
   .route('/:id')

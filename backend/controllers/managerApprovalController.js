@@ -1,16 +1,25 @@
 const LeaveRequest = require('../models/LeaveRequest');
 const Attendance = require('../models/Attendance');
+const AttendanceSession = require('../models/AttendanceSession');
 const AttendanceRegularization = require('../models/AttendanceRegularization');
 const Employee = require('../models/Employee');
 const AuditLog = require('../models/AuditLog');
+const {
+  HttpError,
+  getAttendancePolicy,
+  isFirstPunchLate,
+  recalculateAttendanceSummary,
+  resolveAuthorizedEmployees,
+} = require('../utils/attendanceHelper');
+const { resolveManagerContext, isTargetEmployeeInManagerScope } = require('../utils/orgHelper');
 
 // Helper: get team employee IDs for manager
 const getTeamIds = async (user) => {
   if (user.role === 'manager') {
-    const mgrEmp = await Employee.findOne({ email: user.email });
-    if (!mgrEmp) return [];
-    const teamEmployees = await Employee.find({ department: mgrEmp.department, status: 'Active' }).select('_id');
-    return teamEmployees.map(e => e._id);
+    const ctx = await resolveManagerContext(user);
+    return (ctx.teamEmployees || [])
+      .filter((e) => e.status === 'Active')
+      .map((e) => e._id);
   }
   // Admin / HR: all employees
   const allEmployees = await Employee.find({ status: 'Active' }).select('_id');
@@ -97,9 +106,9 @@ const approveLeave = async (req, res, next) => {
     if (!leave) return res.status(404).json({ success: false, message: 'Leave request not found' });
 
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
       const targetEmp = leave.employee;
-      if (!mgrEmp || !targetEmp || mgrEmp.department.toString() !== targetEmp.department.toString()) {
+      const inScope = targetEmp ? await isTargetEmployeeInManagerScope(req.user, targetEmp) : false;
+      if (!inScope) {
         return res.status(403).json({ success: false, message: 'Not authorized' });
       }
     }
@@ -129,16 +138,19 @@ const approveCorrection = async (req, res, next) => {
     const request = await AttendanceRegularization.findById(req.params.id);
     if (!request) return res.status(404).json({ success: false, message: 'Regularization request not found' });
 
-    if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      const targetEmp = await Employee.findById(request.employee);
-      if (!mgrEmp || !targetEmp || mgrEmp.department.toString() !== targetEmp.department.toString()) {
-        return res.status(403).json({ success: false, message: 'Not authorized to process regularization outside your department' });
-      }
-    }
+    // Verify manager scope via shared RBAC helper
+    await resolveAuthorizedEmployees(req.user, { employeeId: request.employee });
 
     if (request.status !== 'Pending') {
       return res.status(400).json({ success: false, message: 'Request has already been processed' });
+    }
+
+    const targetAtt = await Attendance.findOne({ employee: request.employee, date: request.date });
+    if (status === 'Approved' && targetAtt?.isFinalized && req.user.role === 'manager') {
+      return res.status(403).json({
+        success: false,
+        message: 'This day has been finalized by HR/Admin and cannot be modified by a Manager.',
+      });
     }
 
     request.status = status;
@@ -147,29 +159,88 @@ const approveCorrection = async (req, res, next) => {
     await request.save();
 
     if (status === 'Approved') {
-      const diffMs = new Date(request.clockOut) - new Date(request.clockIn);
-      const totalHours = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
-      const inTime = new Date(request.clockIn);
-      const limitTime = new Date(request.clockIn);
-      limitTime.setHours(9, 30, 0, 0);
-      const attendanceStatus = inTime > limitTime ? 'Late' : 'Present';
-      const overtimeHours = totalHours > 8.0 ? Math.round((totalHours - 8.0) * 100) / 100 : 0;
-
-      let attendance = await Attendance.findOne({ employee: request.employee, date: request.date });
+      const policy = await getAttendancePolicy();
+      let attendance = targetAtt;
       if (!attendance) {
-        await Attendance.create({ employee: request.employee, date: request.date, clockIn: request.clockIn, clockOut: request.clockOut, totalHours, overtimeHours, status: attendanceStatus });
-      } else {
-        attendance.clockIn = request.clockIn; attendance.clockOut = request.clockOut;
-        attendance.totalHours = totalHours; attendance.overtimeHours = overtimeHours;
-        attendance.status = attendanceStatus;
-        await attendance.save();
+        attendance = await Attendance.create({
+          employee: request.employee,
+          date: request.date,
+          clockIn: request.clockIn,
+          clockOut: request.clockOut,
+          status: isFirstPunchLate(request.clockIn, request.date, policy) ? 'Late' : 'Present',
+          dailyStatus: 'Between Sessions',
+        });
       }
+
+      const diffMs = Math.max(0, new Date(request.clockOut) - new Date(request.clockIn));
+      const durationMinutes = Math.round((diffMs / 60000) * 100) / 100;
+      const durationHours = Math.round((diffMs / 3600000) * 100) / 100;
+
+      let targetSession = null;
+      if (request.session) {
+        targetSession = await AttendanceSession.findById(request.session);
+      } else if (request.sessionNumber) {
+        targetSession = await AttendanceSession.findOne({
+          attendance: attendance._id,
+          sessionNumber: request.sessionNumber,
+        });
+      } else {
+        targetSession = await AttendanceSession.findOne({
+          attendance: attendance._id,
+          clockOutTime: null,
+        }).sort({ sessionNumber: 1 });
+        if (!targetSession && request.requestType !== 'AddSession') {
+          const count = await AttendanceSession.countDocuments({ attendance: attendance._id });
+          if (count === 1) {
+            targetSession = await AttendanceSession.findOne({ attendance: attendance._id });
+          }
+        }
+      }
+
+      if (targetSession) {
+        targetSession.clockInTime = request.clockIn;
+        targetSession.clockOutTime = request.clockOut;
+        targetSession.durationMinutes = durationMinutes;
+        targetSession.durationHours = durationHours;
+        targetSession.status = 'Adjusted';
+        targetSession.isManual = true;
+        targetSession.adjustedBy = req.user._id;
+        targetSession.notes = remarks || request.reason;
+        await targetSession.save();
+      } else {
+        const lastSess = await AttendanceSession.findOne({ attendance: attendance._id }).sort({
+          sessionNumber: -1,
+        });
+        const nextNum = lastSess ? lastSess.sessionNumber + 1 : 1;
+        await AttendanceSession.create({
+          employee: request.employee,
+          attendance: attendance._id,
+          attendanceDate: request.date,
+          sessionNumber: nextNum,
+          clockInTime: request.clockIn,
+          clockOutTime: request.clockOut,
+          durationMinutes,
+          durationHours,
+          workMode: attendance.workMode || 'Office',
+          status: 'Adjusted',
+          isManual: true,
+          adjustedBy: req.user._id,
+          notes: remarks || request.reason,
+        });
+      }
+
+      attendance.lastModifiedBy = req.user._id;
+      await attendance.save();
+      await recalculateAttendanceSummary(attendance._id, policy);
     }
 
-    await AuditLog.create({ action: 'UPDATE_ATTENDANCE', entity: 'Attendance', performedBy: req.user._id, details: `${status} regularization request for employee on ${new Date(request.date).toLocaleDateString()}` });
+    await AuditLog.create({ action: 'UPDATE_ATTENDANCE', entity: 'Attendance', entityId: targetAtt?._id || null, performedBy: req.user._id, details: `${status} regularization request for employee on ${new Date(request.date).toLocaleDateString()}` });
 
     res.status(200).json({ success: true, message: `Regularization ${status.toLowerCase()}`, request });
   } catch (error) {
+    if (error instanceof HttpError) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
     next(error);
   }
 };

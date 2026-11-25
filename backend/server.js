@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const { errorHandler } = require('./middleware/errorMiddleware');
 
@@ -10,6 +11,8 @@ const User = require('./models/User');
 const Employee = require('./models/Employee');
 const Department = require('./models/Department');
 const Attendance = require('./models/Attendance');
+const AttendanceSession = require('./models/AttendanceSession');
+// migrate_attendance_sessions removed (migration already complete)
 const LeaveRequest = require('./models/LeaveRequest');
 const Payroll = require('./models/Payroll');
 const AuditLog = require('./models/AuditLog');
@@ -26,6 +29,7 @@ const ChatMessage = require('./models/ChatMessage');
 const Mood = require('./models/Mood');
 const Poll = require('./models/Poll');
 const SkillMatrix = require('./models/SkillMatrix');
+const { syncMissingDesignationsFromEmployees } = require('./utils/orgHelper');
 const TransferRequest = require('./models/TransferRequest');
 const Resignation = require('./models/Resignation');
 
@@ -49,19 +53,106 @@ async function runSeedsIfNeeded() {
   }
 }
 
-// Middleware to ensure DB connection on every request (serverless safe)
+// Health Check Endpoint (always accessible, reports 503 if DB down or Maintenance Mode active)
+app.get('/api/health', async (req, res) => {
+  const isMaintenance = String(process.env.MAINTENANCE_MODE || '').toLowerCase() === 'true';
+  if (isMaintenance) {
+    return res.status(503).json({
+      success: false,
+      status: 'unavailable',
+      code: 'SERVICE_UNAVAILABLE',
+      reason: 'maintenance',
+      message: 'The server is currently undergoing scheduled maintenance. Please try again later.',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      await connectDB();
+    }
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        status: 'unavailable',
+        code: 'SERVICE_UNAVAILABLE',
+        reason: 'database_disconnected',
+        message: 'Database connection is currently unavailable.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      status: 'ok',
+      db: 'connected',
+      maintenance: false,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    return res.status(503).json({
+      success: false,
+      status: 'unavailable',
+      code: 'SERVICE_UNAVAILABLE',
+      reason: 'database_disconnected',
+      message: 'Database connection is currently unavailable.',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+// Middleware to ensure DB connection & check maintenance mode on every request (serverless safe)
 app.use(async (req, res, next) => {
+  if (req.path === '/api/health') {
+    return next();
+  }
+
+  if (
+    req.path.startsWith('/api') &&
+    String(process.env.MAINTENANCE_MODE || '').toLowerCase() === 'true'
+  ) {
+    return res.status(503).json({
+      success: false,
+      code: 'SERVICE_UNAVAILABLE',
+      reason: 'maintenance',
+      message: 'The server is currently unable to handle your request due to temporary overload or maintenance.',
+    });
+  }
+
   try {
     await connectDB();
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        code: 'SERVICE_UNAVAILABLE',
+        reason: 'database_disconnected',
+        message: 'Database connection is currently unavailable. Please try again shortly.',
+      });
+    }
     await runSeedsIfNeeded();
     next();
   } catch (err) {
     console.error('DB Connection Error:', err);
-    res.status(500).json({
-      message: 'Database connection failed. Please check MONGODB_URI in Vercel Environment Variables.',
-      error: err.message
+    res.status(503).json({
+      success: false,
+      code: 'SERVICE_UNAVAILABLE',
+      reason: 'database_disconnected',
+      message: 'Database connection is currently unavailable. Please try again shortly.',
+      error: process.env.NODE_ENV === 'production' ? undefined : err.message,
     });
   }
+});
+
+// Security hardening: hide server framework
+app.disable('x-powered-by');
+
+// Security HTTP Headers
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
 });
 
 // Middleware
@@ -273,6 +364,15 @@ async function seedDatabase() {
     }
     console.log(`Seeded ${seededEmployees.length} employees and users.`);
 
+    const sarahJenkinsEmp = seededEmployees.find((e) => e.employeeId === 'EMP100');
+    const sophiaPatelEmp = seededEmployees.find((e) => e.employeeId === 'EMP104');
+    if (sarahJenkinsEmp) {
+      await Department.findByIdAndUpdate(hrDept._id, { manager: sarahJenkinsEmp._id });
+    }
+    if (sophiaPatelEmp) {
+      await Department.findByIdAndUpdate(engDept._id, { manager: sophiaPatelEmp._id });
+    }
+
     // 5. Generate Attendance Logs for past 15 days
     console.log('Seeding attendance...');
     const activeEmps = seededEmployees.filter(e => e.status === 'Active');
@@ -308,14 +408,33 @@ async function seedDatabase() {
         clockOut.setHours(17 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 60), 0, 0);
 
         const totalHours = (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
+        const roundedHours = Math.round(totalHours * 100) / 100;
+        const durationMinutes = Math.round((clockOut.getTime() - clockIn.getTime()) / 60000 * 100) / 100;
 
-        await Attendance.create({
+        const att = await Attendance.create({
           employee: emp._id,
           date: date,
           clockIn: clockIn,
           clockOut: clockOut,
           status: status,
-          totalHours: Math.round(totalHours * 10) / 10,
+          totalHours: roundedHours,
+          totalMinutes: durationMinutes,
+          sessionCount: 1,
+          breakMinutes: 0,
+          dailyStatus: roundedHours >= 8 ? 'Daily Target Completed' : 'Completed Session',
+        });
+
+        await AttendanceSession.create({
+          employee: emp._id,
+          attendance: att._id,
+          attendanceDate: date,
+          sessionNumber: 1,
+          clockInTime: clockIn,
+          clockOutTime: clockOut,
+          durationMinutes,
+          durationHours: roundedHours,
+          workMode: 'Office',
+          status: 'Completed',
         });
       }
     }
@@ -775,6 +894,7 @@ if (!process.env.VERCEL) {
     await seedDatabase();
     await seedNewCollections();
     await ensureEmployeeProfiles();
+    await syncMissingDesignationsFromEmployees();
   });
 
   app.listen(PORT, () => {

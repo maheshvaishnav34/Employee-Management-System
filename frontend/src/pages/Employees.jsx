@@ -771,6 +771,8 @@ const Employees = () => {
         if (data.success) {
           setFormOpen(false);
           fetchEmployees();
+          fetchDepartments();
+          fetchDesignations();
           showToast('Employee details updated successfully!');
         }
       } else {
@@ -796,6 +798,8 @@ const Employees = () => {
           } catch (e) {}
 
           fetchEmployees();
+          fetchDepartments();
+          fetchDesignations();
           showToast('New employee registered successfully!');
         }
       }
@@ -812,6 +816,8 @@ const Employees = () => {
       const data = await api.delete(`/employees/${id}`);
       if (data.success) {
         fetchEmployees();
+        fetchDepartments();
+        fetchDesignations();
         showToast('Employee deleted successfully.');
       }
     } catch (err) {
@@ -1183,7 +1189,7 @@ const Employees = () => {
                           <option value="">Select Designation</option>
                           {designations.map((d) => (
                             <option key={d._id} value={d.name}>
-                              {d.name}
+                              {d.name}{d.category ? ` (${d.category})` : ''}
                             </option>
                           ))}
                           {formData.designation && !designations.some(d => d.name === formData.designation) && (

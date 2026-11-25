@@ -1,5 +1,7 @@
 const Resignation = require('../models/Resignation');
 const Employee = require('../models/Employee');
+const Department = require('../models/Department');
+const { resolveManagerContext, isTargetEmployeeInManagerScope } = require('../utils/orgHelper');
 
 // @desc    Submit resignation
 // @route   POST /api/resignations
@@ -66,11 +68,11 @@ const getAllResignations = async (req, res, next) => {
     let query = {};
 
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp) return res.status(200).json({ success: true, resignations: [] });
-      const teamEmployees = await Employee.find({ department: mgrEmp.department }).select('_id');
-      const teamIds = teamEmployees.map(e => e._id);
-      query.employee = { $in: teamIds };
+      const ctx = await resolveManagerContext(req.user);
+      if (!ctx.mgrEmp || ctx.employeeIds.length === 0) {
+        return res.status(200).json({ success: true, count: 0, resignations: [] });
+      }
+      query.employee = { $in: ctx.employeeIds };
     }
 
     const resignations = await Resignation.find(query)
@@ -101,8 +103,10 @@ const updateResignationStatus = async (req, res, next) => {
 
     // Manager department check
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp || mgrEmp.department.toString() !== resignation.employee.department.toString()) {
+      const inScope = resignation.employee
+        ? await isTargetEmployeeInManagerScope(req.user, resignation.employee)
+        : false;
+      if (!inScope) {
         return res.status(403).json({ success: false, message: 'Not authorized to process resignations outside your department' });
       }
     }
@@ -113,9 +117,10 @@ const updateResignationStatus = async (req, res, next) => {
     resignation.approvedAt = new Date();
     await resignation.save();
 
-    // If approved, mark employee as inactive
+    // If approved, mark employee as inactive and remove as Department Head
     if (status === 'Approved') {
       await Employee.findByIdAndUpdate(resignation.employee._id, { status: 'Inactive' });
+      await Department.updateMany({ manager: resignation.employee._id }, { manager: null });
     }
 
     res.status(200).json({ success: true, message: `Resignation ${status.toLowerCase()}`, resignation });

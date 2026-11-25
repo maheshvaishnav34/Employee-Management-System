@@ -3,6 +3,7 @@ const Employee = require('../models/Employee');
 const AuditLog = require('../models/AuditLog');
 const Payroll = require('../models/Payroll');
 const Attendance = require('../models/Attendance');
+const AttendanceSession = require('../models/AttendanceSession');
 const LeaveRequest = require('../models/LeaveRequest');
 const Department = require('../models/Department');
 const Candidate = require('../models/Candidate');
@@ -11,6 +12,7 @@ const Reward = require('../models/Reward');
 const Task = require('../models/Task');
 const Designation = require('../models/Designation');
 const Setting = require('../models/Setting');
+const { resolveManagerContext } = require('../utils/orgHelper');
 
 // ─── Audit Log List ──────────────────────────────────────────────────────────
 // @route GET /api/admin/audit-logs
@@ -98,16 +100,15 @@ const getReport = async (req, res, next) => {
     let data = [];
 
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp) {
+      const ctx = await resolveManagerContext(req.user);
+      if (!ctx.mgrEmp || ctx.deptIds.length === 0) {
         return res.status(200).json({ success: true, type, count: 0, data: [] });
       }
-      
-      const teamEmployees = await Employee.find({ department: mgrEmp.department }).select('_id');
-      const teamEmployeeIds = teamEmployees.map(e => e._id);
+
+      const teamEmployeeIds = ctx.employeeIds;
 
       if (type === 'employees') {
-        data = await Employee.find({ department: mgrEmp.department }).populate('department', 'name').lean();
+        data = await Employee.find({ department: { $in: ctx.deptIds } }).populate('department', 'name').lean();
       } else if (type === 'attendance') {
         const from = req.query.from ? new Date(req.query.from) : new Date(new Date().setDate(1));
         const to = req.query.to ? new Date(req.query.to) : new Date();
@@ -249,6 +250,7 @@ const exportBackup = async (req, res, next) => {
       employees: await Employee.find().lean(),
       departments: await Department.find().lean(),
       attendances: await Attendance.find().lean(),
+      attendanceSessions: await AttendanceSession.find().lean(),
       leaveRequests: await LeaveRequest.find().lean(),
       payrolls: await Payroll.find().lean(),
       auditLogs: await AuditLog.find().lean(),
@@ -290,6 +292,7 @@ const importBackup = async (req, res, next) => {
     await Employee.deleteMany({});
     await Department.deleteMany({});
     await Attendance.deleteMany({});
+    await AttendanceSession.deleteMany({});
     await LeaveRequest.deleteMany({});
     await Payroll.deleteMany({});
     await AuditLog.deleteMany({});
@@ -305,6 +308,7 @@ const importBackup = async (req, res, next) => {
     if (data.employees && data.employees.length > 0) await Employee.insertMany(data.employees);
     if (data.departments && data.departments.length > 0) await Department.insertMany(data.departments);
     if (data.attendances && data.attendances.length > 0) await Attendance.insertMany(data.attendances);
+    if (data.attendanceSessions && data.attendanceSessions.length > 0) await AttendanceSession.insertMany(data.attendanceSessions);
     if (data.leaveRequests && data.leaveRequests.length > 0) await LeaveRequest.insertMany(data.leaveRequests);
     if (data.payrolls && data.payrolls.length > 0) await Payroll.insertMany(data.payrolls);
     if (data.candidates && data.candidates.length > 0) await Candidate.insertMany(data.candidates);

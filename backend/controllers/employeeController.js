@@ -1,21 +1,25 @@
 const Employee = require('../models/Employee');
 const User = require('../models/User');
 const Department = require('../models/Department');
+const { resolveManagerContext, ensureDesignationExists } = require('../utils/orgHelper');
 
 // @desc    Get all employees
 // @route   GET /api/employees
-// @access  Private (Admin & HR)
+// @access  Private (Admin, HR, Manager)
 const getEmployees = async (req, res, next) => {
   try {
     const { department, search } = req.query;
     let query = {};
 
     if (req.user.role === 'manager') {
-      const mgrEmp = await Employee.findOne({ email: req.user.email });
-      if (!mgrEmp) {
+      const ctx = await resolveManagerContext(req.user);
+      if (!ctx.mgrEmp || ctx.deptIds.length === 0) {
         return res.status(200).json({ success: true, count: 0, employees: [] });
       }
-      query.department = mgrEmp.department;
+      if (department && !ctx.deptIdStrings.includes(String(department))) {
+        return res.status(200).json({ success: true, count: 0, employees: [] });
+      }
+      query.department = department ? department : { $in: ctx.deptIds };
     } else if (department) {
       query.department = department;
     }
@@ -125,6 +129,8 @@ const createEmployee = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid Department selected' });
     }
 
+    const canonicalDesignation = await ensureDesignationExists(designation);
+
     // Create Employee
     const employee = await Employee.create({
       employeeId,
@@ -136,7 +142,7 @@ const createEmployee = async (req, res, next) => {
       gender,
       joiningDate: joiningDate || undefined,
       department,
-      designation,
+      designation: canonicalDesignation || designation,
       salary,
     });
 
@@ -174,12 +180,32 @@ const updateEmployee = async (req, res, next) => {
     }
 
     const originalEmail = employee.email;
+    const originalDeptId = employee.department ? String(employee.department) : '';
+    const updateData = { ...req.body };
+
+    if (updateData.designation) {
+      updateData.designation = await ensureDesignationExists(updateData.designation);
+    }
 
     // Update Employee
-    employee = await Employee.findByIdAndUpdate(req.params.id, req.body, {
+    employee = await Employee.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
       runValidators: true,
     }).populate('department', 'name');
+
+    // Maintain fixed Department Head integrity if moved to a different department or deactivated
+    if (employee.status === 'Inactive') {
+      await Department.updateMany({ manager: employee._id }, { manager: null });
+    } else if (
+      updateData.department &&
+      String(employee.department?._id || employee.department || '') !== originalDeptId
+    ) {
+      const newDeptId = employee.department?._id || employee.department;
+      await Department.updateMany(
+        { manager: employee._id, _id: { $ne: newDeptId } },
+        { manager: null }
+      );
+    }
 
     // Sync User Account credentials
     const userUpdate = {};
@@ -219,6 +245,9 @@ const deleteEmployee = async (req, res, next) => {
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
+
+    // Clear Department Head assignment if this employee led any department
+    await Department.updateMany({ manager: employee._id }, { manager: null });
 
     // Delete corresponding user account
     await User.findOneAndDelete({ employee: employee._id });

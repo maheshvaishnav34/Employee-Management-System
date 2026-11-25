@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Employee = require('../models/Employee');
 const Department = require('../models/Department');
 const AuditLog = require('../models/AuditLog');
+const { ensureDesignationExists } = require('../utils/orgHelper');
 
 // @desc    Add a new employee and their user account
 // @route   POST /api/users
@@ -111,6 +112,8 @@ const addUser = async (req, res, next) => {
       }
     }
 
+    const canonicalDesignation = await ensureDesignationExists(designation);
+
     // 5. Create Employee profile
     const employee = await Employee.create({
       employeeId: empId,
@@ -121,7 +124,7 @@ const addUser = async (req, res, next) => {
       gender,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
       department: targetDeptId,
-      designation,
+      designation: canonicalDesignation || designation,
       salary: Number(salary),
       skills: Array.isArray(skills) ? skills : (skills ? skills.split(',').map(s => s.trim()) : []),
       address: address || {},

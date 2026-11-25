@@ -19,11 +19,14 @@ const DEFAULT_POLICIES = {
 
   // 1. Work & Attendance
   standardWorkHours: '09:30 AM - 06:30 PM',
+  dailyTargetHours: 8,
+  officeStartTime: '09:30',
   lateGraceMinutes: 15,
   halfDayThresholdHours: 4.5,
+  overtimeThresholdHours: 8,
   allowOvertime: true,
   maxRemoteDaysPerWeek: 2,
-  autoClockOutMidnight: true,
+  autoClockOutMidnight: false,
 
   // 2. Leaves & Absence
   annualPaidLeaves: 18,
@@ -133,6 +136,12 @@ const SystemPoliciesSettings = () => {
           setPolicies(prev => ({
             ...prev,
             standardWorkHours: res.settings.businessHours || prev.standardWorkHours,
+            dailyTargetHours: res.settings.dailyTargetHours ?? prev.dailyTargetHours,
+            officeStartTime: res.settings.officeStartTime || prev.officeStartTime,
+            lateGraceMinutes: res.settings.lateGraceMinutes ?? prev.lateGraceMinutes,
+            halfDayThresholdHours: res.settings.halfDayThresholdHours ?? prev.halfDayThresholdHours,
+            overtimeThresholdHours: res.settings.overtimeThresholdHours ?? prev.overtimeThresholdHours,
+            autoClockOutMidnight: res.settings.autoClockOutMidnight ?? prev.autoClockOutMidnight,
             minAllowableWage: res.settings.salaryRuleMin || prev.minAllowableWage,
             autoDailyDbBackup: res.settings.enableBackups ?? prev.autoDailyDbBackup,
             emailOnLeaveRequest: res.settings.emailNotifications ?? prev.emailOnLeaveRequest,
@@ -167,6 +176,12 @@ const SystemPoliciesSettings = () => {
       try {
         await api.put('/admin/settings', {
           businessHours: policies.standardWorkHours,
+          dailyTargetHours: Number(policies.dailyTargetHours),
+          officeStartTime: policies.officeStartTime,
+          lateGraceMinutes: Number(policies.lateGraceMinutes),
+          halfDayThresholdHours: Number(policies.halfDayThresholdHours),
+          overtimeThresholdHours: Number(policies.overtimeThresholdHours),
+          autoClockOutMidnight: Boolean(policies.autoClockOutMidnight),
           salaryRuleMin: Number(policies.minAllowableWage),
           enableBackups: policies.autoDailyDbBackup,
           emailNotifications: policies.emailOnLeaveRequest,
@@ -294,12 +309,27 @@ const SystemPoliciesSettings = () => {
           value: policies.standardWorkHours,
         },
         {
+          key: 'dailyTargetHours',
+          label: 'Daily Working Hours Target',
+          desc: 'Required total working hours per day across all punch sessions.',
+          type: 'number',
+          value: policies.dailyTargetHours,
+          step: 0.5, min: 1, max: 24,
+        },
+        {
+          key: 'officeStartTime',
+          label: 'Office Start Time (24h HH:mm)',
+          desc: 'Shift start benchmark used to evaluate late arrivals on first Clock In.',
+          type: 'text',
+          value: policies.officeStartTime,
+        },
+        {
           key: 'lateGraceMinutes',
           label: 'Late-In Grace Window (Minutes)',
           desc: 'Tolerance window after shift start before marked as late arrival.',
           type: 'number',
           value: policies.lateGraceMinutes,
-          min: 0, max: 60,
+          min: 0, max: 180,
         },
         {
           key: 'halfDayThresholdHours',
@@ -307,7 +337,15 @@ const SystemPoliciesSettings = () => {
           desc: 'Minimum active tracked hours required to count as a half-day present.',
           type: 'number',
           value: policies.halfDayThresholdHours,
-          step: 0.5, min: 2, max: 6,
+          step: 0.5, min: 1, max: 12,
+        },
+        {
+          key: 'overtimeThresholdHours',
+          label: 'Overtime Start Threshold (Hours)',
+          desc: 'Daily cumulative hours after which additional worked time counts as overtime.',
+          type: 'number',
+          value: policies.overtimeThresholdHours,
+          step: 0.5, min: 1, max: 24,
         },
         {
           key: 'maxRemoteDaysPerWeek',

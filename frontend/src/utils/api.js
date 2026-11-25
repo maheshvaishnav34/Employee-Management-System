@@ -1,5 +1,21 @@
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
+export const notifyServiceUnavailable = (detail = {}) => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ems:service-unavailable', { detail }));
+  }
+};
+
+const isNetworkFailure = (error) => {
+  const msg = String(error?.message || '');
+  return (
+    error?.name === 'TypeError' ||
+    msg.includes('Failed to fetch') ||
+    msg.includes('NetworkError') ||
+    msg.includes('Load failed')
+  );
+};
+
 const getHeaders = () => {
   const token = localStorage.getItem('ems_token');
   const headers = {
@@ -18,14 +34,33 @@ const handleResponse = async (response) => {
       window.location.href = '/login';
     }
   }
-  
-  let data;
+
+  let data = null;
+  let isJson = false;
   try {
     data = await response.json();
+    isJson = true;
   } catch (e) {
+    isJson = false;
+  }
+
+  if (response.status === 502 || response.status === 503 || response.status === 504) {
+    const message = data?.message || 'The server is currently unable to handle your request due to temporary overload or maintenance.';
+    notifyServiceUnavailable({ status: response.status, reason: data?.reason || 'server_unavailable', message });
+    throw new Error(message);
+  }
+
+  // Vite dev proxy returns 500 with empty/non-JSON body when backend port 5000 is down
+  if (!isJson && response.status >= 500) {
+    const message = 'Cannot connect to server. Please ensure backend is running.';
+    notifyServiceUnavailable({ status: 503, reason: 'server_unreachable', message });
+    throw new Error(message);
+  }
+
+  if (!isJson) {
     throw new Error('Server response error. Please check if backend is running.');
   }
-  
+
   if (!response.ok) {
     const errorMsg = data.message || 'Something went wrong';
     throw new Error(errorMsg);
@@ -33,52 +68,44 @@ const handleResponse = async (response) => {
   return data;
 };
 
+const requestWithFallback = async (endpoint, options) => {
+  try {
+    const response = await fetch(`${BASE_URL}${endpoint}`, options);
+    return await handleResponse(response);
+  } catch (error) {
+    if (isNetworkFailure(error)) {
+      const message = 'Cannot connect to server. Please ensure backend is running on port 5000.';
+      notifyServiceUnavailable({ status: 503, reason: 'network_error', message });
+      throw new Error(message);
+    }
+    throw error;
+  }
+};
+
 export const api = {
-  get: async (endpoint) => {
-    try {
-      const response = await fetch(`${BASE_URL}${endpoint}`, {
-        method: 'GET',
-        headers: getHeaders(),
-      });
-      return handleResponse(response);
-    } catch (error) {
-      if (error.message.includes('Failed to fetch')) {
-        throw new Error('Cannot connect to server. Please ensure backend is running on port 5000.');
-      }
-      throw error;
-    }
-  },
+  get: (endpoint) =>
+    requestWithFallback(endpoint, {
+      method: 'GET',
+      headers: getHeaders(),
+    }),
 
-  post: async (endpoint, body) => {
-    try {
-      const response = await fetch(`${BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify(body),
-      });
-      return handleResponse(response);
-    } catch (error) {
-      if (error.message.includes('Failed to fetch')) {
-        throw new Error('Cannot connect to server. Please ensure backend is running on port 5000.');
-      }
-      throw error;
-    }
-  },
+  post: (endpoint, body) =>
+    requestWithFallback(endpoint, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(body),
+    }),
 
-  put: async (endpoint, body) => {
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
+  put: (endpoint, body) =>
+    requestWithFallback(endpoint, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(body),
-    });
-    return handleResponse(response);
-  },
+    }),
 
-  delete: async (endpoint) => {
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
+  delete: (endpoint) =>
+    requestWithFallback(endpoint, {
       method: 'DELETE',
       headers: getHeaders(),
-    });
-    return handleResponse(response);
-  },
+    }),
 };

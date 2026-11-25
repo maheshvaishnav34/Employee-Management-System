@@ -36,6 +36,49 @@ const AttendanceSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    sessionCount: {
+      type: Number,
+      default: 0,
+    },
+    totalMinutes: {
+      type: Number,
+      default: 0,
+    },
+    breakMinutes: {
+      type: Number,
+      default: 0,
+    },
+    dailyStatus: {
+      type: String,
+      enum: [
+        'Not Started',
+        'Currently Working',
+        'Between Sessions',
+        'Completed Session',
+        'Daily Target Completed',
+        'Attendance Incomplete',
+        'Daily Attendance Finalized',
+      ],
+      default: 'Not Started',
+    },
+    isFinalized: {
+      type: Boolean,
+      default: false,
+    },
+    finalizedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    finalizedAt: {
+      type: Date,
+      default: null,
+    },
+    lastModifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
   },
   {
     timestamps: true,

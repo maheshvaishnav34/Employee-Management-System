@@ -5,6 +5,7 @@ const LeaveRequest = require('../models/LeaveRequest');
 const Payroll = require('../models/Payroll');
 const AuditLog = require('../models/AuditLog');
 const Task = require('../models/Task');
+const { resolveAuthorizedEmployees } = require('../utils/attendanceHelper');
 
 // High-performance server-side in-memory cache
 const dashboardCache = new Map();
@@ -58,8 +59,17 @@ const getDashboardStats = async (req, res, next) => {
 
       // ── 2. Attendance Today ──────────────────────────────────────────────
       const today = todayStart();
-      const todayPresentCount = await Attendance.countDocuments({ date: today });
-      const todayLateCount    = await Attendance.countDocuments({ date: today, status: 'Late' });
+      const todayRecords = await Attendance.find({ date: today }).lean();
+      const todayPresentCount = todayRecords.length;
+      const todayLateCount    = todayRecords.filter(r => r.status === 'Late').length;
+      const todayWorkingCount = todayRecords.filter(r => r.dailyStatus === 'Currently Working' || !r.clockOut).length;
+      const todayClockedOutCount = todayRecords.filter(r => Boolean(r.clockOut)).length;
+      const todayIncompleteCount = await Attendance.countDocuments({
+        $or: [
+          { dailyStatus: 'Attendance Incomplete' },
+          { clockOut: null, date: { $lt: today } },
+        ],
+      });
       const todayAbsentCount  = Math.max(0, activeEmployees - todayPresentCount);
       const attendanceRate    = activeEmployees > 0
         ? Math.round((todayPresentCount / activeEmployees) * 100) : 0;
@@ -251,6 +261,9 @@ const getDashboardStats = async (req, res, next) => {
             todayPresent: todayPresentCount,
             todayLate: todayLateCount,
             todayAbsent: todayAbsentCount,
+            currentlyWorking: todayWorkingCount,
+            clockedOutToday: todayClockedOutCount,
+            incompleteAttendance: todayIncompleteCount,
           },
           payroll: {
             monthlyPayrollCost: payrollData.totalNet,
@@ -283,20 +296,32 @@ const getDashboardStats = async (req, res, next) => {
         return res.status(400).json({ success: false, message: 'Manager account is not linked to any department/employee' });
       }
 
-      const managerDeptId = req.user.employee.department;
-
-      // 1. Team Members Counts
-      const teamEmployees = await Employee.find({ department: managerDeptId });
-      const teamEmployeeIds = teamEmployees.map(e => e._id);
+      // 1. Team Members Counts (includes assigned department + managed departments)
+      const scope = await resolveAuthorizedEmployees(req.user);
+      const teamEmployees = scope.employees;
+      const teamEmployeeIds = scope.employeeIds;
       
       const totalEmployees = teamEmployees.length;
       const activeEmployees = teamEmployees.filter(e => e.status === 'Active').length;
       const inactiveEmployees = teamEmployees.filter(e => e.status === 'Inactive').length;
 
-      // 2. Attendance Today
+      // 2. Attendance Today (including multi-session metrics)
       const today = todayStart();
-      const todayPresentCount = await Attendance.countDocuments({ date: today, employee: { $in: teamEmployeeIds } });
-      const todayLateCount    = await Attendance.countDocuments({ date: today, status: 'Late', employee: { $in: teamEmployeeIds } });
+      const todayTeamRecords = await Attendance.find({ date: today, employee: { $in: teamEmployeeIds } }).lean();
+      const todayPresentCount = todayTeamRecords.length;
+      const todayLateCount    = todayTeamRecords.filter(r => r.status === 'Late').length;
+      const currentlyWorking  = todayTeamRecords.filter(r => r.dailyStatus === 'Currently Working' || !r.clockOut).length;
+      const clockedOutToday   = todayTeamRecords.filter(r => Boolean(r.clockOut)).length;
+      const incompleteAttendance = await Attendance.countDocuments({
+        employee: { $in: teamEmployeeIds },
+        $or: [
+          { dailyStatus: 'Attendance Incomplete' },
+          { clockOut: null, date: { $lt: today } },
+        ],
+      });
+      const totalTeamHoursToday = Math.round(
+        todayTeamRecords.reduce((sum, r) => sum + (r.totalHours || 0), 0) * 100
+      ) / 100;
       const todayAbsentCount  = Math.max(0, activeEmployees - todayPresentCount);
       const attendanceRate    = activeEmployees > 0 ? Math.round((todayPresentCount / activeEmployees) * 100) : 0;
 
@@ -384,6 +409,10 @@ const getDashboardStats = async (req, res, next) => {
             todayPresent: todayPresentCount,
             todayLate: todayLateCount,
             todayAbsent: todayAbsentCount,
+            currentlyWorking,
+            clockedOutToday,
+            incompleteAttendance,
+            totalTeamHoursToday,
             pendingTasks,
             completedTasks,
           },
