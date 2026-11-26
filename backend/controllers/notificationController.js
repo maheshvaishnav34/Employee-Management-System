@@ -148,11 +148,26 @@ const streamNotifications = async (req, res) => {
     }
   }, 10000);
 
-  // Cleanup on client disconnect
-  req.on('close', () => {
+  // Tell EventSource to reconnect cleanly after 5s if stream closes
+  res.write('retry: 5000\n\n');
+
+  // Cleanup on client disconnect or serverless timeout guard
+  let serverlessTimer = null;
+  const cleanup = () => {
     clearInterval(heartbeat);
     clearInterval(dataInterval);
-  });
+    if (serverlessTimer) clearTimeout(serverlessTimer);
+  };
+
+  // On Vercel serverless, close SSE gracefully before hitting the 300s function limit
+  if (process.env.VERCEL) {
+    serverlessTimer = setTimeout(() => {
+      cleanup();
+      if (!res.writableEnded) res.end();
+    }, 50000);
+  }
+
+  req.on('close', cleanup);
 };
 
 module.exports = { getNotificationData, streamNotifications };

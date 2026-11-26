@@ -7,10 +7,12 @@ const connectDB = async () => {
     return mongoose.connection;
   }
 
-  if (dbPromise) {
+  // Only reuse an in-flight connection attempt while Mongoose is actively connecting
+  if (mongoose.connection.readyState === 2 && dbPromise) {
     return dbPromise;
   }
 
+  dbPromise = null;
   const connUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/employee_management';
 
   const isAtlas = connUri.includes('mongodb+srv');
@@ -25,6 +27,7 @@ const connectDB = async () => {
       retryWrites: true,
     }),
   }).then((conn) => {
+    dbPromise = null;
     console.log(`MongoDB Connected: ${conn.connection.host}`);
     return conn;
   }).catch((error) => {
